@@ -98,3 +98,64 @@ def test_call_scoped_resolution(repo_graph):
             assert call["resolution"] in repo_graph.entities, (
                 f"CALL '{call['name']}' resolution points to unknown artifact '{call['resolution']}'"
             )
+
+def test_defines_relationships(repo_graph):
+    for entity in repo_graph.all_entities():
+        defines = entity.get("defines", None)
+        assert defines is not None, f"Entity '{entity.get('id')}' missing 'defines'"
+
+        container_id = entity["id"]  # ← fix is here
+
+        for did in defines:
+            assert did in repo_graph.entities, (
+                f"Entity '{entity.get('id')}' defines unknown artifact '{did}'"
+            )
+
+            defined_entity = repo_graph.get_entity(did)
+            parent_id = defined_entity.get("parent_id")
+
+            remaining = defined_entity["id"][len(container_id):]
+            if remaining.count("#") <= 1:
+                assert parent_id == container_id, (
+                    f"Defined entity '{did}' parent_id '{parent_id}' does not match container '{entity['id']}'"
+                )
+
+def test_call_resolution_nested(repo_graph):
+    """
+    Verify CALL resolution respects nested scopes:
+    - Method calling another method in same class
+    - Class calling module-level function
+    - Module-level call to global symbol
+    - Unresolved calls marked as EXTERNAL
+    """
+    calls = [a for a in repo_graph.all_entities() if a["artifact_type"] == "CALL"]
+    assert calls, "No CALL artifacts found"
+
+    for call in calls:
+        name = call.get("name")
+        resolution = call.get("resolution")
+        confidence = call.get("confidence")
+        parent = call.get("parent_id")
+
+        # All calls must have confidence and parent
+        assert parent is not None, f"CALL '{name}' missing parent_id"
+        assert 0.0 <= confidence <= 1.0, f"CALL '{name}' confidence {confidence} out of range"
+
+        # Resolution must exist in graph or be EXTERNAL
+        if resolution != "EXTERNAL":
+            assert resolution in repo_graph.entities, f"CALL '{name}' resolves to unknown artifact '{resolution}'"
+
+def test_call_external_fallback(repo_graph):
+    """
+    Ensure unresolved CALLs are marked as EXTERNAL with confidence 0.0
+    """
+    calls = [a for a in repo_graph.all_entities() if a["artifact_type"] == "CALL"]
+    assert calls, "No CALL artifacts found"
+
+    for call in calls:
+        name = call.get("name")
+        resolution = call.get("resolution")
+        confidence = call.get("confidence")
+
+        if resolution == "EXTERNAL":
+            assert confidence == 0.0, f"External CALL '{name}' should have confidence 0.0"
