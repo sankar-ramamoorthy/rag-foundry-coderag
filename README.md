@@ -1,138 +1,307 @@
-# rag-foundry-docgraph 🚀
+## README.md
+---
 
-**Production-Ready RAG Platform** with **Document Intelligence**: Automatic chunking, **Tesseract OCR**, LLM-powered summaries, and full provenance tracking.
+# rag-foundry-codebase
 
-## 🎯 What It Does
+**Status:** 🚧 Active Development (Public WIP)
+**Parent Lineage:** rag-foundry
+**Focus:** Deterministic Codebase Knowledge Graph + RAG
 
-Transform **any document** (PDFs, images, TXT) into an intelligent knowledge base:
+---
+
+## What Is This?
+
+`rag-foundry-codebase` extends the RAG-Foundry architecture to support **codebase intelligence** using a **Unified Artifact Graph**.
+
+This project turns a repository into a structured, deterministic knowledge graph that can power:
+
+* Code navigation
+* Dependency tracing
+* Impact analysis
+* Test coverage reasoning
+* Multi-hop structural queries
+* Retrieval-Augmented Generation (RAG) over code + documents
+
+This is not just semantic search.
+
+It is a structural + semantic system.
+
+---
+
+## Why This Exists
+
+Traditional RAG systems:
+
+* Chunk text
+* Embed it
+* Retrieve semantically similar content
+
+That works for documents.
+
+It does not work well for:
+
+* Function call tracing
+* Import resolution
+* Class hierarchies
+* Cross-module dependencies
+* Test coverage gaps
+
+This project introduces:
+
+> A deterministic graph layer built from static analysis
+> Combined with vector retrieval
+> With LLM reasoning only at query time
+
+---
+
+## Core Design Principles
+
+### 1. Deterministic Ingestion
+
+* No LLM usage during ingestion
+* AST-based extraction (Python first)
+* Same input → same graph
+* Rebuild-safe
+
+---
+
+### 2. Unified Artifact Graph
+
+All artifacts are stored in the same graph model:
+
+* Documents
+* Python modules
+* Classes
+* Functions
+* Methods
+* Tests
+* ADRs
+
+No separate graph engines.
+No parallel schema divergence.
+
+---
+
+### 3. Canonical Identity Model
+
+Artifacts are identified by:
 
 ```
-📄 Upload PDF/TXT/Image → Tesseract OCR → Auto-chunk → Embed → LLM Summary → RAG Query
-                                   ↓
-                       "What are the main themes?" → Instant answer + sources
+(repo_id, canonical_id)
 ```
 
-**Key features:**
-- **Tesseract OCR** - Extracts text from images/PDF scans
-- **Automatic LLM summaries** stored per document
-- **Full provenance** - trace every answer to exact source chunks/documents
-- **Production Docker stack** - ingestion + OCR + vector store + LLM + RAG orchestrator
-- **Swagger UI** - interactive API docs at `localhost:8001/docs`
-- **Gradio UI** - chat interface at `localhost:7860`
-
-## ✅ What's Working
-
-| Feature | Status |
-|---------|--------|
-| **OCR Text Extraction** | ✅ Live |
-| **Document Ingestion** | ✅ Live |
-| **LLM Summaries** | ✅ Live |
-| **RAG Retrieval** | ✅ Live |
-| **Docker Multi-Service** | ✅ Live |
-| **Gradio Chat UI** | ✅ Live (`localhost:7860`) |
-| **Swagger API Docs** | ✅ Live (`localhost:8001/docs`) |
-
-## 🏗️ Architecture
+Canonical ID format:
 
 ```
-Files/Images → Ingestion Service (OCR) → Vector Store + Document Nodes → RAG Orchestrator → LLM Answers
-                  ↗️ Tesseract OCR          ↗️ Document Summaries         ↗️ Provenance Tracking
+<relative_path>#<symbol_path>
 ```
 
-## 💻 System Requirements
+Examples:
 
-**Tested on:**
-- **Processor**: Intel(R) Core(TM) i7-8565U CPU @ 1.80GHz (1.99 GHz)
-- **RAM**: 8.00 GB (7.79 GB usable) 
-- **OS**: Windows 11
-- **Docker**: Required
-- **Ollama**: Required on host at `http://host.docker.internal:11434`
-- **Architecture**: CPU-only (no GPU required)
+```
+payments/stripe.py
+payments/stripe.py#StripeClient
+payments/stripe.py#StripeClient.charge
+```
 
-## 🚀 Quick Start
+No UUID-based identity.
+No ingestion-order dependency.
+
+---
+
+### 4. Repository Isolation
+
+Artifacts are scoped by:
+
+```
+repo_id (UUID)
+```
+
+This enables indexing multiple repositories without identity collision.
+
+---
+
+### 5. Query-Time Semantics Only
+
+Meaning is applied at query time.
+
+The ingestion layer stores:
+
+* Structure
+* Relationships
+* Provenance
+
+LLMs are used only to assemble answers.
+
+---
+
+## Current Status
+
+This repository is in active architectural development.
+
+Completed:
+
+* ADR-030: Unified Artifact Graph
+* ADR-031: Canonical Identity Model
+* Schema design for artifact_type + repo_id
+* Milestone planning
+
+In Progress:
+
+* Python AST extractor
+* Repository graph builder
+* Deterministic identity utilities
+
+Planned:
+
+* Graph persistence layer
+* Codebase ingestion API
+* Multi-hop traversal queries
+* RAG integration
+
+---
+
+## Milestones
+
+The project is structured into 5–6 milestones with 4–6 issues per milestone.
+
+Example milestone flow:
+
+1. Schema & Architectural Foundation
+2. Python AST Extraction
+3. Repo Graph Builder
+4. Persistence & Ingestion API
+5. Multi-hop Queries
+6. RAG Integration
+
+All development is tracked via structured issue naming:
+
+```
+MS1-IS1-<description>
+MS1-IS2-<description>
+MS2-IS1-<description>
+```
+
+---
+
+## Architecture Overview
+
+High-level flow:
+
+```
+Repository
+    ↓
+AST Extraction (deterministic)
+    ↓
+Symbol Resolution
+    ↓
+Unified Artifact Graph
+    ↓
+Graph + Vector Retrieval
+    ↓
+LLM (query-time only)
+```
+
+---
+
+## Tech Stack
+
+* Python 3.10+
+* FastAPI
+* PostgreSQL
+* pgvector
+* Alembic (raw SQL migrations)
+* tree-sitter (Python AST parsing)
+
+---
+
+## Development Setup
+
+Clone the repository:
 
 ```bash
-# 1. Ensure Ollama running on host (port 11434)
-# 2. Build fresh Docker images  
-docker compose build --no-cache
-
-# 3. Start all services
-docker compose up
-
-# 4. Run database migrations  
-docker compose exec ingestion_service uv run alembic upgrade head
+git clone https://github.com/sankar-ramamoorthy/rag-foundry-codebase.git
+cd rag-foundry-codebase
 ```
 
-**~5 minutes → Full RAG + OCR stack running!**
+Start services:
 
-## 🎮 How to Use
-
-### **Gradio UI (Recommended)**
-```
-1. Open: http://localhost:7860
-2. Upload PDF/TXT/IMAGE → OCR extracts text → "Ingestion accepted" 
-3. Wait ~30-60s → Status: "completed"
-4. Ask: "What are the main themes?" → Instant answer + sources!
-```
-
-### **Direct API**
 ```bash
-# Upload scanned image/PDF (OCR auto-enabled)
-curl -X POST http://localhost:8001/v1/ingest/file \
-  -F "file=@scanned_receipt.jpg" -F 'metadata="{}"'
-
-# Check status
-curl http://localhost:8001/v1/ingest/<ingestion_id>
-
-# RAG query
-curl -X POST http://localhost:8004/v1/rag \
-  -H "Content-Type: application/json" \
-  -d '{"query": "main themes?", "top_k": 3}'
+docker compose up --build
 ```
 
-## 📊 Example Results
+Run migrations:
 
-**Uploaded:** Dolomites climbing story (Marcus + Lucius)  
-**OCR/Summary:** *"Marcus mentors Lucius... resilience and growth"*  
-**RAG Query:** *"Dolomites story themes?"* → **Perfect retrieval + answer**
-
-## 🔧 Tech Stack
-
-```
-🗃️ Postgres + pgvector    Vector storage + metadata
-🖼️ Tesseract OCR         Image/PDF text extraction
-🐳 Docker Compose         Multi-service production stack
-⚡ FastAPI                All APIs
-🎨 Gradio                 Chat UI
-📊 Swagger/OpenAPI        Interactive docs
-🤖 Ollama (CPU)           Local LLM inference
+```bash
+alembic upgrade head
 ```
 
-## 📈 Production Features
+Test AST extraction:
 
-- ✅ **OCR-first** - Scanned documents work automatically
-- ✅ **Document intelligence** - Auto-summaries + provenance  
-- ✅ **Full traceability** - Every answer links to source chunks
-- ✅ **Docker production** - No dependency hell
-- ✅ **Laptop-optimized** - Runs on 8GB CPU-only systems
+```bash
+python scripts/test_ast_extraction.py path/to/sample_repo
+```
 
-## 🔍 Testing Status
+---
 
-**✅ Extensively tested on target hardware** (i7-8565U, 8GB RAM, Windows 11)
-**🔄 Ongoing validation** - Additional edge cases in progress
+## Architectural Decision Records (ADRs)
 
-## 🤝 Contributing
+This project uses ADRs to preserve architectural intent.
 
-Docs and edge-case testing welcome!
+Location:
 
-## 📄 License
+```
+docs/adr/
+```
 
-MIT - Free for commercial use
+Current ADRs:
 
-***
+* ADR-030 — Unified Artifact Graph
+* ADR-031 — Canonical Identity Model
 
-**RAG + OCR that actually works on real hardware.** Production-ready today.
+More will follow as the system evolves.
 
+---
 
-refer to 
-DOCS\detailed_architecture_20260207.md
+## Important Notes
+
+* This repository is public.
+* This is an evolving architecture.
+* APIs may change during early milestones.
+* Stability guarantees will be defined post-MVP.
+
+---
+
+## Long-Term Vision
+
+The goal is to build:
+
+* Deterministic code intelligence
+* Multi-artifact reasoning
+* Explainable RAG systems
+* Cross-repository knowledge graphs
+
+This project explores how far a unified artifact graph can go before needing specialized graph infrastructure.
+
+If that boundary is reached, the learning itself becomes the product.
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Please:
+
+* Link every change to an issue
+* Follow milestone structure
+* Add or update ADRs when architectural decisions are made
+* Keep ingestion deterministic
+
+---
+
+## License
+
+MIT
+
+---
