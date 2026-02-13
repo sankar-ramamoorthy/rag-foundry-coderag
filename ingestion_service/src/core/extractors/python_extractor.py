@@ -27,6 +27,7 @@ class PythonASTExtractor(ast.NodeVisitor):
 
     def extract(self, source_code: str) -> List[Dict]:
         tree = ast.parse(source_code)
+        annotate_parents(tree)  # <-- ensure parent links are set
         # Add module artifact
         self.artifacts.append({
             "artifact_type": "MODULE",
