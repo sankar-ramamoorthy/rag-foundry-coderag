@@ -22,6 +22,9 @@ METHOD = "METHOD"
 # Testing
 TEST = "TEST"
 
+# Repositories
+REPO = "REPO"  # optional node type to represent repositories themselves
+
 # Future / placeholder types
 TODO = "TODO"          # reserved for future use if needed
 DEPRECATED = "DEPRECATED"  # can be flagged during ingestion
