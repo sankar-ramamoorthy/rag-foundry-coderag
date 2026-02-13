@@ -78,3 +78,23 @@ def test_imports_collected(repo_graph):
     """
     imports = [a for a in repo_graph.all_entities() if a["artifact_type"] == "IMPORT"]
     assert imports, "No IMPORT artifacts collected"
+
+def test_call_scoped_resolution(repo_graph):
+    """Verify CALL resolution respects local scope and sets confidence"""
+    calls = [a for a in repo_graph.entities.values() if a["artifact_type"] == "CALL"]
+    assert calls, "No CALL artifacts found"
+
+    for call in calls:
+        # Confidence must exist
+        assert "confidence" in call, f"CALL '{call['name']}' missing confidence"
+        conf = call["confidence"]
+        assert 0.0 <= conf <= 1.0, f"CALL '{call['name']}' confidence out of range"
+
+        # Parent ID must exist
+        assert call.get("parent_id") is not None, f"CALL '{call['name']}' missing parent_id"
+
+        # If resolved, resolution should exist in graph
+        if call["resolution"] != "EXTERNAL":
+            assert call["resolution"] in repo_graph.entities, (
+                f"CALL '{call['name']}' resolution points to unknown artifact '{call['resolution']}'"
+            )

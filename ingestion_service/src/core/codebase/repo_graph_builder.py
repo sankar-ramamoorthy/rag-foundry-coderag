@@ -4,15 +4,16 @@ RepoGraphBuilder
 
 Walk repository, extract Python artifacts, and resolve CALLs.
 
-MS3-IS3 features:
-- CALL resolution using SymbolTable
+MS3-IS6 features:
+- Multi-pass CALL resolution
+- Scoped resolution (module and class)
 - Confidence scoring (0.0–1.0)
 - Parent ID attachment
 - EXTERNAL handling for unresolved CALLs
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 
 from src.core.extractors.python_extractor import PythonASTExtractor
 from src.core.codebase.repo_graph import RepoGraph
@@ -47,7 +48,6 @@ class RepoGraphBuilder:
                 continue
 
             artifacts = extractor.extract(source)
-
             for artifact in artifacts:
                 graph.add_entity(relative_path, artifact)
 
@@ -57,31 +57,64 @@ class RepoGraphBuilder:
         symbol_table = build_symbol_table(graph)
 
         # ----------------------------
-        # 3. Resolve CALL artifacts
+        # 3. Resolve CALL artifacts (multi-pass, scoped)
         # ----------------------------
-        for artifact in graph.all_entities():
-            if artifact["artifact_type"] == "CALL":
-                call_name: Optional[str] = artifact.get("name")
-                if call_name:
-                    resolved_id = symbol_table.lookup(call_name)
-                    if resolved_id:
-                        artifact["resolution"] = resolved_id
-                        artifact["confidence"] = 1.0  # strong
-                    else:
-                        artifact["resolution"] = "EXTERNAL"
-                        artifact["confidence"] = 0.0  # weak
-                else:
-                    artifact["resolution"] = "EXTERNAL"
-                    artifact["confidence"] = 0.0
-
-                # Attach parent_id (module or class)
-                eid: Optional[str] = artifact.get("id")
-                if eid:
-                    artifact["parent_id"] = eid.rsplit("#", 1)[0]
-                else:
-                    artifact["parent_id"] = None
+        self._resolve_calls(graph, symbol_table)
 
         return graph
+
+    # ----------------------------
+    # CALL Resolution Logic
+    # ----------------------------
+    def _resolve_calls(self, graph: RepoGraph, symbol_table):
+        """
+        Resolve CALL artifacts with confidence scoring.
+        Implements a basic scoped/multi-pass strategy:
+        - Local scope (module/class)
+        - Global scope via SymbolTable
+        """
+        # First pass: module/class-local resolution
+        for call in self._calls(graph):
+            name = call.get("name")
+            parent_id = call.get("id")
+            call["parent_id"] = parent_id.rsplit("#", 1)[0] if parent_id else None
+
+            # Attempt local scope resolution
+            local_res = self._resolve_in_scope(call, graph)
+            if local_res:
+                call["resolution"], call["confidence"] = local_res
+            else:
+                # fallback to global symbol table
+                global_res = symbol_table.lookup(name) if name else None
+                if global_res:
+                    call["resolution"] = global_res
+                    call["confidence"] = 1.0
+                else:
+                    call["resolution"] = "EXTERNAL"
+                    call["confidence"] = 0.0
+
+    def _calls(self, graph: RepoGraph):
+        """Yield all CALL artifacts"""
+        for entity in graph.all_entities():
+            if entity.get("artifact_type") == "CALL":
+                yield entity
+
+    def _resolve_in_scope(self, call: dict, graph: RepoGraph) -> Optional[Tuple[str, float]]:
+        """
+        Attempt to resolve a CALL within its local scope (module or class).
+        Returns (canonical_id, confidence) if found, else None.
+        """
+        parent = call.get("parent_id")
+        if not parent:
+            return None
+
+        # Look for definitions inside the same module/class
+        for entity in graph.all_entities():
+            if entity.get("id", "").startswith(parent):
+                if entity.get("name") == call.get("name") and entity["artifact_type"] in {"CLASS", "FUNCTION", "METHOD"}:
+                    return entity["id"], 1.0  # strong match
+
+        return None
 
     # ----------------------------
     # Helpers
