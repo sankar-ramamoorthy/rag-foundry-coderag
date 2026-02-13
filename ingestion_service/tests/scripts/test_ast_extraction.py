@@ -31,6 +31,9 @@ def test_extractor_on_self_file(extractor):
 
     # Extract artifacts
     artifacts = extractor.extract(source_code)
+    for artifact in artifacts:
+        print(artifact)
+
 
     # ----------------------------
     # Module artifact
