@@ -35,11 +35,24 @@ def upgrade() -> None:
             summary_embedding vector(768),
             source TEXT NOT NULL,
             ingestion_id UUID NOT NULL REFERENCES ingestion_service.ingestion_requests(ingestion_id),
-            doc_type TEXT NOT NULL
+            doc_type TEXT NOT NULL,
+            artifact_type TEXT NOT NULL DEFAULT 'DOCUMENT',
+            repo_id UUID NOT NULL
         )
         """
     )
 
+    # Composite uniqueness constraint
+    op.execute("""
+        ALTER TABLE ingestion_service.document_nodes 
+        ADD CONSTRAINT uq_document_nodes_repo_id_document_id UNIQUE (repo_id, document_id)
+    """)
+
+
+    # Performance indexes
+    op.execute("CREATE INDEX idx_document_nodes_artifact_type ON ingestion_service.document_nodes (artifact_type)")
+    op.execute("CREATE INDEX idx_document_nodes_repo_id ON ingestion_service.document_nodes (repo_id)")
+    op.execute("CREATE INDEX idx_document_nodes_repo_artifact_type ON ingestion_service.document_nodes (repo_id, artifact_type)")
 
 def downgrade() -> None:
     """Drop DocumentNodes table."""
