@@ -21,6 +21,7 @@ RUN apt-get update && \
         tesseract-ocr \
         curl \
         build-essential \
+        git \
         python3-dev && \
     rm -rf /var/lib/apt/lists/*
 

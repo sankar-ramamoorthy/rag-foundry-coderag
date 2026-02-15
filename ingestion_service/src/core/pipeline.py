@@ -75,6 +75,7 @@ class IngestionPipeline:
                 source=source,  # 🔥 MS7: Matches summary.py query
                 ingestion_id=UUID(ingestion_id),
                 doc_type=source_type,  # "file", "image", etc.
+                repo_id=str(ingestion_id), 
             )
             session.commit()  #  CRITICAL: Commit BEFORE vectors
             logger.debug(f"✅ MS6 run() DocumentNode COMMITTED {document_id} for {ingestion_id}")
@@ -125,6 +126,7 @@ class IngestionPipeline:
                 source=source,  # 🔥 MS7: Matches summary.py query
                 ingestion_id=UUID(ingestion_id),
                 doc_type="file",
+                repo_id=str(ingestion_id), 
             )
             session.commit()  # 🔥 CRITICAL: Commit BEFORE vectors
             logger.debug(f"✅ MS6 run_with_chunks() DocumentNode COMMITTED {document_id} for {ingestion_id}")

@@ -109,81 +109,28 @@ def submit_rag_query(query: str, top_k: int, provider: str | None, model: str | 
 
     # Add these functions + UI section to your existing file
 
-    # ----------------------------
-    # Codebase Ingestion Functions
-    # ----------------------------
-    def submit_codebase_ingest(source_type: str, git_url: str, local_path: str, provider: str):
-        """Submit codebase ingestion request."""
-        try:
-            if source_type == "git":
-                if not git_url.strip():
-                    return "Please enter a Git URL."
-                response = requests.post(
-                    f"{API_BASE_URL}/v1/codebase/ingest-repo",
-                    data={"git_url": git_url, "provider": provider or ""},
-                    timeout=30,
-                )
-            elif source_type == "local":
-                if not local_path.strip():
-                    return "Please enter a local path."
-                response = requests.post(
-                    f"{API_BASE_URL}/v1/codebase/ingest-repo",
-                    data={"local_path": local_path, "provider": provider or ""},
-                    timeout=30,
-                )
-            else:
-                return "Please select 'Git URL' or 'Local Path'."
-
-            if response.status_code != 202:
-                return f"Error: {response.text}"
-
-            data = response.json()
-            return f"✅ **Ingestion Started**\nID: `{data['ingestion_id']}`\nStatus: {data['status']}\n\n*Check status below*"
-        
-        except Exception as exc:
-            return f"❌ Error: {exc}"
-
-    def check_codebase_status(ingestion_id: str):
-        """Check codebase ingestion status."""
-        try:
-            if not ingestion_id.strip():
-                return "Please enter an Ingestion ID."
-            
-            response = requests.get(
-                f"{API_BASE_URL}/v1/codebase/ingest-repo/{ingestion_id}",
-                timeout=10,
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return f"**Status**: {data['status']}"
-            else:
-                return f"❌ Error: {response.text}"
-        
-        except Exception as exc:
-            return f"❌ Error: {exc}"
-
 # ----------------------------
 # Codebase Ingestion Functions
 # ----------------------------
 def submit_codebase_ingest(source_type: str, git_url: str, local_path: str, provider: str):
     """Submit codebase ingestion request."""
+    print(f"🔍 Gradio calling: {API_BASE_URL}/v1/ingest-repo")
     try:
         if source_type == "git":
             if not git_url.strip():
                 return "Please enter a Git URL."
             response = requests.post(
-                f"{API_BASE_URL}/v1/codebase/ingest-repo",
+                f"{API_BASE_URL}/v1/ingest-repo",
                 data={"git_url": git_url, "provider": provider or ""},
-                timeout=30,
+                timeout=300,
             )
         elif source_type == "local":
             if not local_path.strip():
                 return "Please enter a local path."
             response = requests.post(
-                f"{API_BASE_URL}/v1/codebase/ingest-repo",
+                f"{API_BASE_URL}/v1/ingest-repo",
                 data={"local_path": local_path, "provider": provider or ""},
-                timeout=30,
+                timeout=300,
             )
         else:
             return "Please select 'Git URL' or 'Local Path'."
@@ -204,7 +151,7 @@ def check_codebase_status(ingestion_id: str):
             return "Please enter an Ingestion ID."
         
         response = requests.get(
-            f"{API_BASE_URL}/v1/codebase/ingest-repo/{ingestion_id}",
+            f"{API_BASE_URL}/v1/ingest-repo/{ingestion_id}",
             timeout=10,
         )
         

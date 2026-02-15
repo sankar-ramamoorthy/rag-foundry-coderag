@@ -27,9 +27,9 @@ def test_expand_relationships_one_hop(session: Session):
     doc_c_id = str(uuid.uuid4())
 
     # Create document nodes
-    create_document_node(session, document_id=doc_a_id, content="Doc A")
-    create_document_node(session, document_id=doc_b_id, content="Doc B")
-    create_document_node(session, document_id=doc_c_id, content="Doc C")
+    create_document_node(session, document_id=doc_a_id, content="Doc A",repo_id=str(ingestion_id), )
+    create_document_node(session, document_id=doc_b_id, content="Doc B"repo_id=str(ingestion_id), )
+    create_document_node(session, document_id=doc_c_id, content="Doc C"repo_id=str(ingestion_id), )
 
     # Create relationships
     create_document_relationship(session, from_document_id=doc_a_id, to_document_id=doc_b_id, relation_type="refers")

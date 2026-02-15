@@ -17,8 +17,8 @@ def test_relationship_expansion_affects_candidate_set(session):
     doc2_id = str(uuid.uuid4())
     seed_docs = [doc1_id]
 
-    create_document_node(session, document_id=doc1_id, title="Seed Doc 1")
-    create_document_node(session, document_id=doc2_id, title="Target Doc 2")
+    create_document_node(session, document_id=doc1_id, title="Seed Doc 1",repo_id=str(ingestion_id), )
+    create_document_node(session, document_id=doc2_id, title="Target Doc 2",repo_id=str(ingestion_id), )
 
     # Add relationship: doc1 -> doc2
     create_document_relationship(

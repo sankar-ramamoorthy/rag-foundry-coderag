@@ -53,6 +53,18 @@ class CodebaseGraphPersistence:
         for node in nodes:
             canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
             try:
+                # Ensure title is set if missing
+                if "title" not in node:
+                    node["title"] = "Untitled"  # Fallback if no title is present
+                if "doc_type" not in node:
+                    node["doc_type"] = "unknown"  # Fallback if no doc_type is present
+                # Ensure 'source' is set if missing
+                if "source" not in node:
+                    node["source"] = node.get("relative_path", "unknown_source")  
+                if "relative_path" not in node:
+                    node["relative_path"] = "Unknown"   
+ 
+
                 existing = (
                     self._session.query(DocumentNode)
                     .filter_by(repo_id=repo_id, canonical_id=canonical_id)
@@ -64,6 +76,7 @@ class CodebaseGraphPersistence:
                     existing.summary = node.get("summary", existing.summary)
                     existing.doc_type = node.get("doc_type", existing.doc_type)
                     existing.source = node.get("source", existing.source)
+                    existing.relative_path = node.get("relative_path", existing.relative_path)
                     logger.debug(f"Updated DocumentNode: {canonical_id}")
                 else:
                     # Insert new node
@@ -74,6 +87,7 @@ class CodebaseGraphPersistence:
                         summary=node.get("summary", ""),
                         doc_type=node["doc_type"],
                         source=node["source"],
+                        relative_path=node["relative_path"],
                     )
                     self._session.add(new_node)
                     logger.debug(f"Inserted DocumentNode: {canonical_id}")

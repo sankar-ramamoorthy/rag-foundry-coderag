@@ -35,7 +35,7 @@ from src.core.pipeline import IngestionPipeline
 SessionLocal = get_sessionmaker()
 router = APIRouter(tags=["codebase_ingest"])
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 # -----------------------------
 # Request / Response Models
 # -----------------------------
@@ -67,29 +67,41 @@ def _background_ingest_repo(
 
     temp_dir = None
     try:
+        logger.debug(f"[{ingestion_id}] Starting background ingestion")
+        logger.debug(f"[{ingestion_id}] git_url={git_url}, local_path={local_path}, provider={provider}")
+
         if git_url:
             import git  # GitPython
             temp_dir = tempfile.mkdtemp()
-            logger.info(f"Cloning {git_url} into {temp_dir}")
+            logger.debug(f"Cloning {git_url} into {temp_dir}")
             git.Repo.clone_from(git_url, temp_dir)
             repo_path = temp_dir
         elif local_path:
             repo_path = str(Path(local_path).resolve())
+            logger.info(f"[{ingestion_id}] Using local repo path: {repo_path}")
         else:
             raise ValueError("Either git_url or local_path must be provided")
 
         # --- Build Repo Graph ---
-        builder = RepoGraphBuilder()
-        repo_graph = builder.build(repo_path)
+        logger.debug(f"[{ingestion_id}] Building RepoGraph...")
+        builder = RepoGraphBuilder(repo_root=Path(repo_path))
+        repo_graph = builder.build()
+        logger.debug(f"[{ingestion_id}] RepoGraph built successfully")
 
+        logger.debug(f"[{ingestion_id}] Total entities: {len(repo_graph.all_entities())}")
         # --- Persist Nodes & Relationships ---
         persistence = CodebaseGraphPersistence(session=session)
-        persistence.upsert_nodes(repo_id=str(ingestion_id), nodes=repo_graph.nodes)
-        persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
+        nodes = repo_graph.all_entities()  # ✅ CORRECT method
+        logger.debug(f"[{ingestion_id}] Sample node keys: {nodes[0].keys() if nodes else 'NO NODES'}")
+        persistence.upsert_nodes(repo_id=str(ingestion_id), nodes=nodes)
+
+        ## Relationships will be added in MS5 - skip for now
+        #persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
 
         # --- Run embeddings via IngestionPipeline ---
         pipeline = IngestionPipeline()  # Can inject provider/embedder if needed
         for node in repo_graph.nodes:
+            logger.debug(f"[{ingestion_id}] Embedding node id={node.get('id')} keys={node.keys()}")
             text = node.get("text", "")
             if text.strip():
                 pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="code", provider=provider or "ollama")
@@ -98,7 +110,8 @@ def _background_ingest_repo(
         logger.info(f"✅ Repo ingestion completed: {ingestion_id}")
 
     except Exception as exc:
-        logger.error(f"❌ Repo ingestion failed: {ingestion_id} - {exc}")
+        logger.exception(f"❌ Repo ingestion failed: {ingestion_id}")
+        #logger.error(f"❌ Repo ingestion failed: {ingestion_id} - {exc}")
         StatusManager(session).mark_failed(ingestion_id, error=str(exc))
 
     finally:

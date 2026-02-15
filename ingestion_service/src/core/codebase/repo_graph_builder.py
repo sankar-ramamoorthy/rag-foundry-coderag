@@ -19,7 +19,11 @@ from typing import List, Optional, Dict, Tuple
 from src.core.extractors.python_extractor import PythonASTExtractor
 from src.core.codebase.repo_graph import RepoGraph
 from src.core.codebase.symbol_table import build_symbol_table
+import logging
 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class RepoGraphBuilder:
     """
@@ -30,6 +34,7 @@ class RepoGraphBuilder:
     def __init__(self, repo_root: Path):
         self.repo_root = repo_root
 
+
     def build(self) -> RepoGraph:
         """Build the repository graph with DEFINES and CALL resolution."""
         # ----------------------------
@@ -38,9 +43,17 @@ class RepoGraphBuilder:
         graph = RepoGraph(self.repo_root)
 
         for file_path in self._walk_repo():
-            relative_path = file_path.relative_to(self.repo_root).as_posix()
+            logger.debug("Build repo graph")
+            logger.debug(f"[RepoGraphBuilder] Processing file: {file_path}")
+            try:
+                relative_path = file_path.relative_to(self.repo_root).as_posix()
+                logger.debug(f"Build repo graph relative_path = {relative_path}")
+            except Exception:
+                logger.exception(f"[RepoGraphBuilder] Failed to compute relative_path for {file_path}")
+                continue
             extractor = self._select_extractor(file_path)
             if extractor is None:
+                logger.debug(f"[RepoGraphBuilder] No extractor for {file_path}")
                 continue
 
             try:
@@ -48,10 +61,27 @@ class RepoGraphBuilder:
             except Exception:
                 continue  # skip unreadable files
 
-            artifacts = extractor.extract(source)
+            try:
+                artifacts = extractor.extract(source)
+                logger.debug(f"[RepoGraphBuilder] Extracted {len(artifacts)} artifacts from {relative_path}")
+            except Exception:
+                logger.exception(f"[RepoGraphBuilder] Extraction failed for {relative_path}")
+                continue
+
             for artifact in artifacts:
+                artifact["relative_path"] = relative_path
+                # Ensure title is set, if not already present
+                if "title" not in artifact:
+                    artifact["title"] = artifact.get("name", "Untitled")  # Use 'name' or default to "Untitled"
+                logger.debug(
+                    f"[RepoGraphBuilder] Adding artifact id={artifact.get('id')} "
+                    f"type={artifact.get('artifact_type')} "
+                    f"parent={artifact.get('parent_id')}"
+                    f"title={artifact.get('title')}"
+                )
                 artifact["defines"] = []
                 graph.add_entity(relative_path, artifact)
+
 
         # ----------------------------
         # 2. Build symbol table
@@ -82,6 +112,7 @@ class RepoGraphBuilder:
         definition_types = {"CLASS", "FUNCTION", "METHOD"}
 
         for entity in graph.all_entities():
+            logger.debug(f"[DEFINES] Inspecting entity id={entity.get('id')} type={entity.get('artifact_type')}")
             artifact_type = entity.get("artifact_type")
             if artifact_type not in definition_types:
                 continue

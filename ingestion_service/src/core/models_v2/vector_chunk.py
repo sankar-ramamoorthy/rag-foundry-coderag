@@ -1,3 +1,4 @@
+# ingestion_service/src/core/models_v2/vector_chunk.py
 """
 ORM model for VectorChunks table using pgvector.
 Represents embedding chunks linked to a DocumentNode.
@@ -35,16 +36,31 @@ class VectorChunk(Base):
     __tablename__ = "vectors"
     __table_args__ = {"schema": "ingestion_service"}
 
+    # -----------------------------
+    # Primary Key
+    # -----------------------------
     id: int = Column(Integer, primary_key=True, autoincrement=True)
+
+    # -----------------------------
+    # Embedding & Ingestion Metadata
+    # -----------------------------
     vector: list[float] = Column(Vector(768), nullable=False)  # pgvector column
     ingestion_id: str = Column(String, nullable=False)
     chunk_id: str = Column(String, nullable=False)
     chunk_index: int = Column(Integer, nullable=False)
     chunk_strategy: str = Column(String, nullable=False)
     chunk_text: str = Column(String, nullable=False)
-    source_metadata: dict = Column(JSON, nullable=False, default={})
+    source_metadata: dict = Column(JSON, nullable=False, default=dict)  # fixed mutable default
     provider: str = Column(String, nullable=False, default="ollama")
 
-    # Link back to document node
-    document_id: str = Column(ForeignKey("ingestion_service.document_nodes.document_id"), nullable=True)
-    document_node: "DocumentNode" = relationship("DocumentNode", back_populates="vector_chunks")
+    # -----------------------------
+    # Relationship to DocumentNode
+    # -----------------------------
+    document_id: str = Column(
+        ForeignKey("ingestion_service.document_nodes.document_id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    document_node: "DocumentNode" = relationship(
+        "DocumentNode",
+        back_populates="vector_chunks",
+    )
