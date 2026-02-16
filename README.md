@@ -1,5 +1,3 @@
----
-
 ## 📘 **README.md** — *Updated for Codebase + Document Ingestion* 
 # date 20260216
 
