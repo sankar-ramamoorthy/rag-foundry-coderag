@@ -1,307 +1,251 @@
-## README.md
 ---
 
+## 📘 **README.md** — *Updated for Codebase + Document Ingestion* 
+# date 20260216
+
+```markdown
 # rag-foundry-codebase
 
-**Status:** 🚧 Active Development (Public WIP)
-**Parent Lineage:** rag-foundry
-**Focus:** Deterministic Codebase Knowledge Graph + RAG
+**Status:** Active Development (Public WIP)  
+**Parent Project:** rag-foundry  
+**Focus:** Unified Ingestion & RAG for Codebases + Documents
 
 ---
 
-## What Is This?
+## 🚀 What Is This?
 
-`rag-foundry-codebase` extends the RAG-Foundry architecture to support **codebase intelligence** using a **Unified Artifact Graph**.
+`rag-foundry-codebase` extends the **RAG-Foundry** architecture to support *semantic retrieval* across both **codebases** and **documents**.
 
-This project turns a repository into a structured, deterministic knowledge graph that can power:
+This system turns code repositories, text files, and PDFs into structured vectors and a canonical artifact graph suitable for:
 
-* Code navigation
-* Dependency tracing
-* Impact analysis
-* Test coverage reasoning
-* Multi-hop structural queries
-* Retrieval-Augmented Generation (RAG) over code + documents
+- Semantic code search
+- Cross-artifact retrieval (code ↔ docs)
+- Repository navigation + dependency reasoning
+- Querying code and content using LLMs
 
-This is not just semantic search.
-
-It is a structural + semantic system.
+It combines a **deterministic artifact graph** with vector retrieval for powerful RAG experiences.
 
 ---
 
-## Why This Exists
+## 🧠 Why This Exists
 
-Traditional RAG systems:
+Traditional RAG systems simply:
 
-* Chunk text
-* Embed it
-* Retrieve semantically similar content
+1. Chunk text
+2. Embed it
+3. Retrieve based on similarity
 
-That works for documents.
+That works well for prose, but **code demands structure**:
 
-It does not work well for:
+- Function and method boundaries
+- Import graphs and symbol paths
+- Cross-module references
 
-* Function call tracing
-* Import resolution
-* Class hierarchies
-* Cross-module dependencies
-* Test coverage gaps
+This project bridges that gap by combining:
 
-This project introduces:
-
-> A deterministic graph layer built from static analysis
-> Combined with vector retrieval
-> With LLM reasoning only at query time
+- **Deterministic graph extraction** (AST & canonical IDs)
+- **Vector embeddings + retrieval**
+- **RAG over both code and text content**
 
 ---
 
-## Core Design Principles
+## 📌 Key Highlights
 
-### 1. Deterministic Ingestion
+### ✅ Unified Ingestion
 
-* No LLM usage during ingestion
-* AST-based extraction (Python first)
-* Same input → same graph
-* Rebuild-safe
+This system now correctly ingests:
 
----
+✔ Git repositories containing **Python code**  
+✔ Regular **text documents**  
+✔ **PDFs** (via text extraction + embedding)
 
-### 2. Unified Artifact Graph
+Each artifact is processed *appropriately* based on type:
 
-All artifacts are stored in the same graph model:
-
-* Documents
-* Python modules
-* Classes
-* Functions
-* Methods
-* Tests
-* ADRs
-
-No separate graph engines.
-No parallel schema divergence.
+- Text/PDF → chunked & embedded by text content
+- Code → AST-derived artifacts embedded with structural context
 
 ---
 
-### 3. Canonical Identity Model
+## 🧩 Core Design Principles
 
-Artifacts are identified by:
+### 1️⃣ **Deterministic Ingestion**
+- No extraneous randomness during ingestion
+- Same input = same artifact identity
+- AST extraction for code artifacts ensures structural precision
+
+### 2️⃣ **Unified Artifact Identity**
+Artifacts are uniquely and deterministically identified using:
 
 ```
+
 (repo_id, canonical_id)
-```
-
-Canonical ID format:
 
 ```
-<relative_path>#<symbol_path>
-```
 
-Examples:
+Where:
+- `repo_id` is a UUID per repository ingestion
+- `canonical_id` is computed from file paths and symbol names
 
-```
-payments/stripe.py
-payments/stripe.py#StripeClient
-payments/stripe.py#StripeClient.charge
-```
-
-No UUID-based identity.
-No ingestion-order dependency.
+This prevents collisions across ingestions and supports repeatable graph builds.
 
 ---
 
-### 4. Repository Isolation
-
-Artifacts are scoped by:
+## 🧱 Architectural Overview
 
 ```
-repo_id (UUID)
+
+Repository/Document Sources
+│
+▼
+AST Extraction & Text Parsing
+│
+Canonical Artifact Model
+│
+Database Persistence
+│
+Vector Embedding & Storage
+│
+RAG Queries (LLM + Retrieval)
+
 ```
 
-This enables indexing multiple repositories without identity collision.
+This layered pipeline ensures *structural context* is preserved before embedding.
 
 ---
 
-### 5. Query-Time Semantics Only
+## ✔ Canonical Identity Format
 
-Meaning is applied at query time.
-
-The ingestion layer stores:
-
-* Structure
-* Relationships
-* Provenance
-
-LLMs are used only to assemble answers.
-
----
-
-## Current Status
-
-This repository is in active architectural development.
-
-Completed:
-
-* ADR-030: Unified Artifact Graph
-* ADR-031: Canonical Identity Model
-* Schema design for artifact_type + repo_id
-* Milestone planning
-
-In Progress:
-
-* Python AST extractor
-* Repository graph builder
-* Deterministic identity utilities
-
-Planned:
-
-* Graph persistence layer
-* Codebase ingestion API
-* Multi-hop traversal queries
-* RAG integration
-
----
-
-## Milestones
-
-The project is structured into 5–6 milestones with 4–6 issues per milestone.
-
-Example milestone flow:
-
-1. Schema & Architectural Foundation
-2. Python AST Extraction
-3. Repo Graph Builder
-4. Persistence & Ingestion API
-5. Multi-hop Queries
-6. RAG Integration
-
-All development is tracked via structured issue naming:
+A typical `canonical_id` looks like:
 
 ```
-MS1-IS1-<description>
-MS1-IS2-<description>
-MS2-IS1-<description>
-```
+
+path/to/file.py
+path/to/file.py#ClassName
+path/to/file.py#function_name
+
+````
+
+**Artifacts are scoped by a deterministic `(repo_id, canonical_id)` identity.**  
+No ephemeral UUIDs — stable identity per artifact across runs.
 
 ---
 
-## Architecture Overview
+## 🛠️ Current Feature Set
 
-High-level flow:
-
-```
-Repository
-    ↓
-AST Extraction (deterministic)
-    ↓
-Symbol Resolution
-    ↓
-Unified Artifact Graph
-    ↓
-Graph + Vector Retrieval
-    ↓
-LLM (query-time only)
-```
+✔ Git repository ingestion (Python AST extraction)  
+✔ Regular document ingestion (text + PDF)  
+✔ Vector embeddings via configurable provider  
+✔ Vector store integration (pgvector, etc.)  
+✔ Code navigation + retrieval foundations
 
 ---
 
-## Tech Stack
+## ▶ Supported Content Types
 
-* Python 3.10+
-* FastAPI
-* PostgreSQL
-* pgvector
-* Alembic (raw SQL migrations)
-* tree-sitter (Python AST parsing)
+| Content Type     | Ingestion Path              | Embedding? | Graph Structure? |
+|------------------|-----------------------------|------------|------------------|
+| Python code      | AST + canonical graph build | ✅         | ✅               |
+| Text files       | Standard chunk/embedding    | ✅         | (flat)           |
+| PDFs             | Extract → chunk → embed     | ✅         | (flat)           |
 
 ---
 
-## Development Setup
+## 💡 Getting Started
 
-Clone the repository:
-
+1. **Clone repository**
 ```bash
 git clone https://github.com/sankar-ramamoorthy/rag-foundry-codebase.git
 cd rag-foundry-codebase
-```
+````
 
-Start services:
+2. **Start Services**
 
 ```bash
 docker compose up --build
 ```
 
-Run migrations:
+3. **Run Migrations**
 
 ```bash
 alembic upgrade head
 ```
 
-Test AST extraction:
+4. **Ingest a Git Repository**
 
 ```bash
-python scripts/test_ast_extraction.py path/to/sample_repo
+curl -X POST http://localhost:8000/v1/codebase/ingest-repo \
+     -F git_url=https://github.com/your/repo.git
+```
+
+5. **Ingest a Text Document**
+
+```bash
+curl -X POST http://localhost:8000/v1/ingest/file \
+     -F file=@my_doc.txt
+```
+
+6. **Ingest a PDF**
+
+```bash
+curl -X POST http://localhost:8000/v1/ingest/file \
+     -F file=@my_file.pdf
 ```
 
 ---
 
-## Architectural Decision Records (ADRs)
+## 🤖 Architectural Decision Records (ADRs)
 
-This project uses ADRs to preserve architectural intent.
-
-Location:
+This repository uses ADRs to document architectural choices.
+Find them under:
 
 ```
 docs/adr/
 ```
 
-Current ADRs:
+Example ADRs:
 
 * ADR-030 — Unified Artifact Graph
 * ADR-031 — Canonical Identity Model
+* ADR-042 — Document ID Consistency / Vector Linking (recent) *(proposed)*
 
-More will follow as the system evolves.
-
----
-
-## Important Notes
-
-* This repository is public.
-* This is an evolving architecture.
-* APIs may change during early milestones.
-* Stability guarantees will be defined post-MVP.
+These ensure design intent is preserved and decisions are traceable.
 
 ---
 
-## Long-Term Vision
+## 🧬 Tech Stack
 
-The goal is to build:
-
-* Deterministic code intelligence
-* Multi-artifact reasoning
-* Explainable RAG systems
-* Cross-repository knowledge graphs
-
-This project explores how far a unified artifact graph can go before needing specialized graph infrastructure.
-
-If that boundary is reached, the learning itself becomes the product.
+| Layer               | Technology                       |
+| ------------------- | -------------------------------- |
+| API / Orchestration | Python + FastAPI                 |
+| Vector Storage      | PostgreSQL + pgvector            |
+| Database            | PostgreSQL                       |
+| Migrations          | Alembic                          |
+| Code Parsing        | tree-sitter (AST extraction)     |
+| Embeddings          | Pluggable (Ollama, OpenAI, etc.) |
+| Vector Operations   | HTTP Vector Store Service        |
 
 ---
 
-## Contributing
+## 🔗 Projects & Lineage
 
-Contributions are welcome.
+This project builds on **rag-foundry**, an opinionated RAG framework for structured knowledge ingestion, and extends it to support *code + document ingestion* with structural context and query time semantics.
 
-Please:
+---
 
-* Link every change to an issue
-* Follow milestone structure
-* Add or update ADRs when architectural decisions are made
+## 🚧 Contribution Notes
+
+* Link every change to a GitHub issue
+* Follow milestone naming in issue templates
+* Add/update ADRs for significant design decisions
 * Keep ingestion deterministic
 
 ---
 
-## License
+## 📄 License
 
-MIT
+MIT License
 
 ---
+
+*Ready for codebase + document RAG ingestion with structural intelligence!* 🚀
+
