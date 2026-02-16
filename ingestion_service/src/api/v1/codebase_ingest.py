@@ -1,17 +1,5 @@
-"""
-API Endpoints for Repository Ingestion
-
-Provides:
-- POST /v1/codebase/ingest-repo: ingest a Git repo or local path
-- GET  /v1/codebase/ingest-repo/{ingestion_id}: check ingestion status
-
-Integrates:
-- RepoGraphBuilder for code artifact graph construction
-- CodebaseGraphPersistence for deterministic node & relationship persistence
-- IngestionPipeline for embedding code artifacts
-"""
-
-from uuid import uuid4, UUID
+import uuid
+from uuid import uuid4, UUID, uuid5
 import threading
 import logging
 from pathlib import Path
@@ -29,12 +17,47 @@ from src.core.codebase.repo_graph_builder import RepoGraphBuilder
 from src.core.codebase.codebase_persistence import CodebaseGraphPersistence
 from src.core.pipeline import IngestionPipeline
 
+from src.core.config import get_settings
+from shared.embedders.factory import get_embedder
+from src.core.http_vectorstore import HttpVectorStore
+
 # -----------------------------
 # Session and router
 # -----------------------------
 SessionLocal = get_sessionmaker()
 router = APIRouter(tags=["codebase_ingest"])
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# -----------------------------
+# Temporary pipeline builder (TECH DEBT - see issue)
+# -----------------------------
+class NoOpValidator:
+    def validate(self, text: str) -> None:
+        return None
+
+
+def _build_pipeline(provider: str) -> IngestionPipeline:
+    settings = get_settings()
+
+    embedder = get_embedder(
+        provider=settings.EMBEDDING_PROVIDER,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        ollama_model=settings.OLLAMA_EMBED_MODEL,
+        ollama_batch_size=settings.OLLAMA_BATCH_SIZE,
+    )
+
+    vector_store = HttpVectorStore(
+        base_url=settings.VECTOR_STORE_SERVICE_URL,
+        provider=provider,
+    )
+
+    return IngestionPipeline(
+        validator=NoOpValidator(),
+        embedder=embedder,
+        vector_store=vector_store,
+    )
+
 
 # -----------------------------
 # Request / Response Models
@@ -67,38 +90,67 @@ def _background_ingest_repo(
 
     temp_dir = None
     try:
+        logger.debug(f"[{ingestion_id}] Starting background ingestion")
+        logger.debug(f"[{ingestion_id}] git_url={git_url}, local_path={local_path}, provider={provider}")
+
         if git_url:
             import git  # GitPython
             temp_dir = tempfile.mkdtemp()
-            logger.info(f"Cloning {git_url} into {temp_dir}")
+            logger.debug(f"Cloning {git_url} into {temp_dir}")
             git.Repo.clone_from(git_url, temp_dir)
             repo_path = temp_dir
         elif local_path:
             repo_path = str(Path(local_path).resolve())
+            logger.info(f"[{ingestion_id}] Using local repo path: {repo_path}")
         else:
             raise ValueError("Either git_url or local_path must be provided")
 
         # --- Build Repo Graph ---
-        builder = RepoGraphBuilder()
-        repo_graph = builder.build(repo_path)
+        logger.debug(f"[{ingestion_id}] Building RepoGraph...")
+        builder = RepoGraphBuilder(repo_root=Path(repo_path), ingestion_id=ingestion_id)
+        repo_graph = builder.build()
+        logger.debug(f"[{ingestion_id}] RepoGraph built successfully")
 
+        logger.debug(f"[{ingestion_id}] Total entities: {len(repo_graph.all_entities())}")
         # --- Persist Nodes & Relationships ---
         persistence = CodebaseGraphPersistence(session=session)
-        persistence.upsert_nodes(repo_id=str(ingestion_id), nodes=repo_graph.nodes)
-        persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
+        nodes = repo_graph.all_entities()  # ✅ CORRECT method
+        logger.debug(f"[{ingestion_id}] Sample node keys: {nodes[0].keys() if nodes else 'NO NODES'}")
+        persistence.upsert_nodes(repo_id=str(ingestion_id), nodes=nodes)
+
+        ## Relationships will be added in MS5 - skip for now
+        #persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
 
         # --- Run embeddings via IngestionPipeline ---
-        pipeline = IngestionPipeline()  # Can inject provider/embedder if needed
-        for node in repo_graph.nodes:
+        settings = get_settings()
+        provider = settings.EMBEDDING_PROVIDER
+        pipeline = _build_pipeline(provider)
+
+        # Corrected embedding loop with document_id lookup
+        for node in nodes:
+            logger.debug(f"[{ingestion_id}] Embedding node id={node.get('id')} keys={node.keys()}")
             text = node.get("text", "")
             if text.strip():
-                pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="code", provider=provider or "ollama")
+                canonical_id = node["canonical_id"]
+
+                # Get the existing document_id from DB using canonical_id
+                doc_node = persistence.get_node_by_canonical_id(str(ingestion_id), canonical_id)
+
+                if doc_node:
+                    # Proceed with embedding and persistence
+                    chunks = pipeline._chunk(text, "code", provider)
+                    embeddings = pipeline._embed(chunks)
+                    pipeline._persist(chunks, embeddings, str(ingestion_id), doc_node.document_id)
+                else:
+                    logger.warning(f"Skipping node without DB record: {canonical_id}")
+            else:
+                logger.debug(f"[{ingestion_id}] Skipping node without text")
 
         StatusManager(session).mark_completed(ingestion_id)
         logger.info(f"✅ Repo ingestion completed: {ingestion_id}")
 
     except Exception as exc:
-        logger.error(f"❌ Repo ingestion failed: {ingestion_id} - {exc}")
+        logger.exception(f"❌ Repo ingestion failed: {ingestion_id}")
         StatusManager(session).mark_failed(ingestion_id, error=str(exc))
 
     finally:
@@ -158,3 +210,4 @@ def get_repo_ingest_status(ingestion_id: str) -> RepoIngestResponse:
             raise HTTPException(status_code=404, detail="Ingestion ID not found")
 
         return RepoIngestResponse(ingestion_id=request.ingestion_id, status=request.status)
+

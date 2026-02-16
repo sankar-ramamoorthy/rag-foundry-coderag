@@ -45,6 +45,7 @@ class IngestionPipeline:
         ingestion_id: str,
         source_type: str,
         provider: str,
+        filename: str = "unknown",  # NEW: Optional filename
     ) -> None:
         """
         Full pipeline: validate → chunk → embed → persist + DocumentNode (MS6).
@@ -66,7 +67,8 @@ class IngestionPipeline:
             logger.debug(f"   document_id: {document_id}")
             logger.debug(f"   title: '{title}'")
             logger.debug(f"   source: '{source}'")  # 🔥 MS7: This MUST match summary.py query
-            
+            relative_path = filename or "uploaded_file"
+            canonical_id = f"{source_type}_document_{ingestion_id}"            
             create_document_node(
                 session,
                 document_id=document_id,
@@ -75,6 +77,9 @@ class IngestionPipeline:
                 source=source,  # 🔥 MS7: Matches summary.py query
                 ingestion_id=UUID(ingestion_id),
                 doc_type=source_type,  # "file", "image", etc.
+                canonical_id=canonical_id,
+                relative_path=relative_path,
+                repo_id=str(ingestion_id), 
             )
             session.commit()  #  CRITICAL: Commit BEFORE vectors
             logger.debug(f"✅ MS6 run() DocumentNode COMMITTED {document_id} for {ingestion_id}")
@@ -96,6 +101,7 @@ class IngestionPipeline:
         *,
         chunks: list[Chunk],
         ingestion_id: str,
+        filename: str = "unknown",  # NEW: Optional filename
     ) -> None:
         """
         Pipeline for pre-chunked content: DocumentNode → embed → persist (MS6).
@@ -116,7 +122,8 @@ class IngestionPipeline:
             logger.debug(f"   document_id: {document_id}")
             logger.debug(f"   title: '{title}'")
             logger.debug(f"   source: '{source}'")  # 🔥 MS7: This MUST match summary.py query
-            
+            relative_path = filename or "uploaded_file"
+            canonical_id = f"pdf_document_{ingestion_id}"            
             create_document_node(
                 session,
                 document_id=document_id,
@@ -125,7 +132,10 @@ class IngestionPipeline:
                 source=source,  # 🔥 MS7: Matches summary.py query
                 ingestion_id=UUID(ingestion_id),
                 doc_type="file",
-            )
+                canonical_id=canonical_id,
+                relative_path=relative_path,            
+                repo_id=str(ingestion_id), 
+                )
             session.commit()  # 🔥 CRITICAL: Commit BEFORE vectors
             logger.debug(f"✅ MS6 run_with_chunks() DocumentNode COMMITTED {document_id} for {ingestion_id}")
             logger.debug(f"   → summary.py will look for source='{source}'")

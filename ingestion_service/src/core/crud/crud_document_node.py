@@ -2,10 +2,14 @@
 
 from typing import List, Optional
 from uuid import UUID
+import logging
 
 from sqlalchemy.orm import Session
-
 from src.core.models_v2.document_node import DocumentNode
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def create_document_node(
@@ -17,12 +21,31 @@ def create_document_node(
     source: str,
     ingestion_id: UUID,
     doc_type: str,
+    canonical_id: str,           # ← ADD THIS
+    relative_path: str,          # ← ADD THIS
+    repo_id: Optional[str] = None,  
 ) -> DocumentNode:
     """
     Create and persist a new DocumentNode.
 
     This function does NOT create sessions or engines.
     """
+    # Validate title before creating the document node
+    if not title:
+        logger.warning("Title is empty or None. Defaulting to 'Untitled Document'.")
+        title = "Untitled Document"  # Default title if not provided
+    
+    # Validate summary before creating the document node
+    if not summary:
+        logger.warning("Summary is empty or None. Defaulting to 'Summary pending'.")
+        summary = "Summary pending"  # Default summary if not provided
+    
+    # Log the data to check before insertion
+    logger.debug(f"Creating DocumentNode with data: "
+                 f"document_id={document_id}, title={title}, summary={summary}, "
+                 f"source={source}, ingestion_id={ingestion_id}, doc_type={doc_type}, repo_id={repo_id}")
+
+    # Create and persist the DocumentNode
     node = DocumentNode(
         document_id=document_id,
         title=title,
@@ -30,12 +53,16 @@ def create_document_node(
         source=source,
         ingestion_id=ingestion_id,
         doc_type=doc_type,
+        canonical_id=canonical_id,       # ✅
+        relative_path=relative_path,     # ✅
+        repo_id=repo_id or str(ingestion_id),  # Use ingestion_id if repo_id is None
     )
 
     session.add(node)
     session.commit()
     session.refresh(node)
 
+    logger.debug(f"DocumentNode {document_id} created and committed.")
     return node
 
 
@@ -66,6 +93,8 @@ def list_document_nodes_by_ingestion(
         .order_by(DocumentNode.document_id)
         .all()
     )
+
+
 def update_document_node_summary(
     session, ingestion_id: UUID, summary: str
 ) -> bool:

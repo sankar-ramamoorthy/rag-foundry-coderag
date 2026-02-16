@@ -50,32 +50,78 @@ class CodebaseGraphPersistence:
         - source: source file path
         - summary: optional summary
         """
+        canonical_id = "unknown"
         for node in nodes:
-            canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
             try:
+                # Ensure title is set if missing
+                if "title" not in node:
+                    node["title"] = "Untitled"  # Fallback if no title is present
+                if "doc_type" not in node:
+                    node["doc_type"] = "unknown"  # Fallback if no doc_type is present
+                # Ensure 'source' is set if missing
+                if "source" not in node:
+                    node["source"] = node.get("relative_path", "unknown_source")  
+                if "relative_path" not in node:
+                    node["relative_path"] = "Unknown"
+                if "canonical_id" not in node:
+                    canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
+                    node["canonical_id"] = canonical_id
+                canonical_id = node["canonical_id"]    
+                logger.debug(f"in upsertnodes: canonical_id {canonical_id}")
+                   
+ 
+
                 existing = (
                     self._session.query(DocumentNode)
                     .filter_by(repo_id=repo_id, canonical_id=canonical_id)
                     .first()
                 )
                 if existing:
-                    # Update existing node
-                    existing.title = node.get("title", existing.title)
-                    existing.summary = node.get("summary", existing.summary)
-                    existing.doc_type = node.get("doc_type", existing.doc_type)
-                    existing.source = node.get("source", existing.source)
-                    logger.debug(f"Updated DocumentNode: {canonical_id}")
+                    existing.update_from_dict(node)
                 else:
-                    # Insert new node
-                    new_node = DocumentNode(
-                        repo_id=repo_id,
-                        canonical_id=canonical_id,
-                        title=node["title"],
-                        summary=node.get("summary", ""),
-                        doc_type=node["doc_type"],
-                        source=node["source"],
-                    )
+                    #new_node = DocumentNode(**node)
+                    #self._session.add(new_node)
+                    document_node_data = {
+                        'repo_id': repo_id,
+                        'canonical_id': canonical_id,
+                        'relative_path': node.get('relative_path', 'unknown'),
+                        'symbol_path': node.get('symbol_path'),
+                        'title': node.get('title', 'Untitled'),
+                        'summary': node.get('summary', ''),
+                        'source': node.get('source', node.get('relative_path', 'unknown')),
+                        'ingestion_id': str(node.get('ingestion_id')),
+                        'doc_type': node.get('doc_type', 'unknown'),
+                        'text': node.get('text', ''),
+                    }
+                    new_node = DocumentNode(**document_node_data)
                     self._session.add(new_node)
+#                if existing:
+#                    # Update existing node
+#                    existing.ingestion_id = node.get("ingestion_id", existing.ingestion_id)
+#                    existing.title = node.get("title", existing.title)
+#                    existing.summary = node.get("summary", existing.summary)
+#                    existing.doc_type = node.get("doc_type", existing.doc_type)
+#                    existing.source = node.get("source", existing.source)
+#                    existing.relative_path = node.get("relative_path", existing.relative_path)
+#                    if "text" in node:
+#                        existing.text = node["text"]  # Update the text if it exists
+#                    logger.debug(f"Updated DocumentNode: {canonical_id}")
+#                else:
+#                    # Insert new node
+#                    if "text" not in node:
+#                         node["text"]  = " "
+#                    new_node = DocumentNode(
+#                        repo_id=repo_id,
+#                        canonical_id=canonical_id,
+#                        title=node["title"],
+#                        summary=node.get("summary", ""),
+#                        doc_type=node["doc_type"],
+#                        source=node["source"],
+#                        relative_path=node["relative_path"],
+#                        ingestion_id=node["ingestion_id"],
+#                        text=node["text"]
+#                    )
+#                    self._session.add(new_node)
                     logger.debug(f"Inserted DocumentNode: {canonical_id}")
             except SQLAlchemyError as e:
                 logger.error(f"Error upserting node {canonical_id}: {e}")

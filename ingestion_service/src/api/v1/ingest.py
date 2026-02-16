@@ -107,12 +107,12 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
             chunks = PDFChunkAssembler().assemble(graph)
             if not chunks:
                 raise RuntimeError("No extractable text found in uploaded PDF")
-            pipeline.run_with_chunks(chunks=chunks, ingestion_id=str(ingestion_id))
+            pipeline.run_with_chunks(chunks=chunks, ingestion_id=str(ingestion_id), filename=filename)
         else:
             text = extract_text_from_bytes(file_bytes=file_bytes, filename=filename, content_type=content_type, ocr_provider=ocr_provider)
             if not text.strip():
                 raise RuntimeError("No extractable text found in uploaded file")
-            pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="file", provider=provider)
+            pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="file", provider=provider,filename=filename )
 
         # Mark completed
         with SessionLocal() as session:

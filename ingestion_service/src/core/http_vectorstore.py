@@ -56,7 +56,7 @@ class HttpVectorStore:
 
         # Dual-write to vector_store_service (handles both tables internally)
         self.add_vectors(records)
-        logger.info(f"Persisted {len(records)} vectors for ingestion {ingestion_id}{' with document_id ' + document_id if document_id else ''}")
+        logger.info(f"Persisted {len(records)} vectors for ingestion {ingestion_id}  with document_id  {document_id}")
 
     def add_vectors(self, records: List[dict]):
         """Send a batch of vectors to vector_store_service."""

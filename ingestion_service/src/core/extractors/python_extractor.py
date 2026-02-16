@@ -48,6 +48,7 @@ class PythonASTExtractor(ast.NodeVisitor):
             "artifact_type": "MODULE",
             "id": self.module_id,
             "name": self.module_name,
+            "relative_path": self.relative_path,
             "metadata": {},
         })
 
@@ -126,6 +127,7 @@ class PythonASTExtractor(ast.NodeVisitor):
                 "id": f"{self.relative_path}#import:{alias.name}",
                 "name": alias.name,
                 "parent_id": self._current_parent_id(),
+                "relative_path": self.relative_path,
                 "metadata": {
                     "asname": alias.asname,
                     "lineno": node.lineno,
@@ -141,6 +143,7 @@ class PythonASTExtractor(ast.NodeVisitor):
                 "id": f"{self.relative_path}#import:{module}.{alias.name}",
                 "name": alias.name,
                 "parent_id": self._current_parent_id(),
+                "relative_path": self.relative_path,
                 "metadata": {
                     "module": module,
                     "asname": alias.asname,
@@ -163,6 +166,7 @@ class PythonASTExtractor(ast.NodeVisitor):
             "id": f"{self.relative_path}#call:{func_name}",
             "name": func_name,
             "parent_id": self._current_parent_id(),
+            "relative_path": self.relative_path,
             "metadata": {
                 "lineno": node.lineno,
                 "col_offset": node.col_offset,

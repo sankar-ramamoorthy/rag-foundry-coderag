@@ -57,6 +57,7 @@ def test_document_node_crud(session):
         title="CRUD Test",
         text="Lorem Ipsum",
         metadata={},
+        repo_id=str(ingestion_id), 
     )
 
     assert node.document_id == document_id
