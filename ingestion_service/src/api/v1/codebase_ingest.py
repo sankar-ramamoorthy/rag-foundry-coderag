@@ -29,6 +29,10 @@ from src.core.codebase.repo_graph_builder import RepoGraphBuilder
 from src.core.codebase.codebase_persistence import CodebaseGraphPersistence
 from src.core.pipeline import IngestionPipeline
 
+from src.core.config import get_settings
+from shared.embedders.factory import get_embedder
+from src.core.http_vectorstore import HttpVectorStore
+
 # -----------------------------
 # Session and router
 # -----------------------------
@@ -36,6 +40,38 @@ SessionLocal = get_sessionmaker()
 router = APIRouter(tags=["codebase_ingest"])
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+# -----------------------------
+# Temporary pipeline builder (TECH DEBT - see issue)
+# -----------------------------
+class NoOpValidator:
+    def validate(self, text: str) -> None:
+        return None
+
+
+def _build_pipeline(provider: str) -> IngestionPipeline:
+    settings = get_settings()
+
+    embedder = get_embedder(
+        provider=settings.EMBEDDING_PROVIDER,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        ollama_model=settings.OLLAMA_EMBED_MODEL,
+        ollama_batch_size=settings.OLLAMA_BATCH_SIZE,
+    )
+
+    vector_store = HttpVectorStore(
+        base_url=settings.VECTOR_STORE_SERVICE_URL,
+        provider=provider,
+    )
+
+    return IngestionPipeline(
+        validator=NoOpValidator(),
+        embedder=embedder,
+        vector_store=vector_store,
+    )
+
+
+
 # -----------------------------
 # Request / Response Models
 # -----------------------------
@@ -84,7 +120,7 @@ def _background_ingest_repo(
 
         # --- Build Repo Graph ---
         logger.debug(f"[{ingestion_id}] Building RepoGraph...")
-        builder = RepoGraphBuilder(repo_root=Path(repo_path))
+        builder = RepoGraphBuilder(repo_root=Path(repo_path),ingestion_id=ingestion_id)
         repo_graph = builder.build()
         logger.debug(f"[{ingestion_id}] RepoGraph built successfully")
 
@@ -99,8 +135,12 @@ def _background_ingest_repo(
         #persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
 
         # --- Run embeddings via IngestionPipeline ---
-        pipeline = IngestionPipeline()  # Can inject provider/embedder if needed
-        for node in repo_graph.nodes:
+        settings = get_settings()
+        provider = settings.EMBEDDING_PROVIDER
+        pipeline = _build_pipeline(provider)
+
+        #pipeline = IngestionPipeline()  # Can inject provider/embedder if needed
+        for node in nodes:#repo_graph.nodes:
             logger.debug(f"[{ingestion_id}] Embedding node id={node.get('id')} keys={node.keys()}")
             text = node.get("text", "")
             if text.strip():

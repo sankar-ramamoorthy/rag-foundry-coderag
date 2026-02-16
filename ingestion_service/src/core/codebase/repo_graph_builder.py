@@ -15,7 +15,7 @@ MS3-IS6 + MS3-IS4 features:
 
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple
-
+from src.core.codebase.identity import build_global_id  
 from src.core.extractors.python_extractor import PythonASTExtractor
 from src.core.codebase.repo_graph import RepoGraph
 from src.core.codebase.symbol_table import build_symbol_table
@@ -31,8 +31,10 @@ class RepoGraphBuilder:
     resolve CALLs, and track DEFINES.
     """
 
-    def __init__(self, repo_root: Path):
+    def __init__(self, repo_root: Path, ingestion_id ):
         self.repo_root = repo_root
+        self.ingestion_id = ingestion_id
+
 
 
     def build(self) -> RepoGraph:
@@ -40,7 +42,7 @@ class RepoGraphBuilder:
         # ----------------------------
         # 1. Build repo graph
         # ----------------------------
-        graph = RepoGraph(self.repo_root)
+        graph = RepoGraph(self.repo_root,self.ingestion_id)
 
         for file_path in self._walk_repo():
             logger.debug("Build repo graph")
@@ -59,6 +61,7 @@ class RepoGraphBuilder:
             try:
                 source = file_path.read_text(encoding="utf-8")
             except Exception:
+                logger.debug(f"skipping unreadable file for {file_path}")
                 continue  # skip unreadable files
 
             try:
@@ -70,15 +73,25 @@ class RepoGraphBuilder:
 
             for artifact in artifacts:
                 artifact["relative_path"] = relative_path
+                artifact['ingestion_id']  =self.ingestion_id
                 # Ensure title is set, if not already present
                 if "title" not in artifact:
                     artifact["title"] = artifact.get("name", "Untitled")  # Use 'name' or default to "Untitled"
+                if "doc_type" not in artifact:
+                    artifact["doc_type"] = "python source"
+                # Generate the global ID using the repo_id and canonical ID
+                global_id = build_global_id(self.ingestion_id, relative_path, artifact.get("id"))
+                artifact["global_id"] = global_id
+                artifact["canonical_id"] = global_id[1]
+
                 logger.debug(
                     f"[RepoGraphBuilder] Adding artifact id={artifact.get('id')} "
                     f"type={artifact.get('artifact_type')} "
                     f"parent={artifact.get('parent_id')}"
                     f"title={artifact.get('title')}"
+                    f"global_id={artifact.get('global_id')}"
                 )
+
                 artifact["defines"] = []
                 graph.add_entity(relative_path, artifact)
 

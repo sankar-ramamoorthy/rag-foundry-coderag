@@ -51,7 +51,6 @@ class CodebaseGraphPersistence:
         - summary: optional summary
         """
         for node in nodes:
-            canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
             try:
                 # Ensure title is set if missing
                 if "title" not in node:
@@ -62,7 +61,13 @@ class CodebaseGraphPersistence:
                 if "source" not in node:
                     node["source"] = node.get("relative_path", "unknown_source")  
                 if "relative_path" not in node:
-                    node["relative_path"] = "Unknown"   
+                    node["relative_path"] = "Unknown"
+                if "canonical_id" not in node:
+                    canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
+                    node["canonical_id"] = canonical_id
+                canonical_id = node["canonical_id"]    
+                logger.debug(f"in upsertnodes: canonical_id {canonical_id}")
+                   
  
 
                 existing = (
@@ -72,6 +77,7 @@ class CodebaseGraphPersistence:
                 )
                 if existing:
                     # Update existing node
+                    existing.ingestion_id = node.get("ingestion_id", existing.ingestion_id)
                     existing.title = node.get("title", existing.title)
                     existing.summary = node.get("summary", existing.summary)
                     existing.doc_type = node.get("doc_type", existing.doc_type)
@@ -88,6 +94,7 @@ class CodebaseGraphPersistence:
                         doc_type=node["doc_type"],
                         source=node["source"],
                         relative_path=node["relative_path"],
+                        ingestion_id=node["ingestion_id"]
                     )
                     self._session.add(new_node)
                     logger.debug(f"Inserted DocumentNode: {canonical_id}")

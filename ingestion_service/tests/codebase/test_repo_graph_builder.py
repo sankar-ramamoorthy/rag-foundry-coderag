@@ -1,6 +1,7 @@
 # ingestion_service/tests/scripts/test_repo_graph_builder.py
 import pytest
 from pathlib import Path
+from uuid import uuid4
 
 from src.core.codebase.repo_graph_builder import RepoGraphBuilder
 from src.core.codebase.symbol_table import build_symbol_table
@@ -12,8 +13,9 @@ def repo_graph():
     Build the repo graph once for the whole test module.
     """
     # Adjust path if needed; here we use the `src` folder in the repo root
+    ingestion_id = uuid4()
     repo_root = Path(__file__).resolve().parent.parent.parent / "src"
-    builder = RepoGraphBuilder(repo_root)
+    builder = RepoGraphBuilder(repo_root,ingestion_id=ingestion_id)
     return builder.build()
 
 

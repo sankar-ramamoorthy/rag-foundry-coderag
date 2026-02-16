@@ -16,8 +16,9 @@ class RepoGraph:
     Stores artifacts for a repository.
     """
 
-    def __init__(self, repo_root: Path):
+    def __init__(self, repo_root: Path,ingestion_id):
         self.repo_root = repo_root
+        self.ingestion_id = ingestion_id
         self.entities: Dict[str, dict] = {}  # canonical_id -> artifact dict
         self.files: Dict[str, List[str]] = {}  # relative_path -> [canonical_id]
 
