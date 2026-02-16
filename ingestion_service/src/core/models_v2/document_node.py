@@ -120,6 +120,12 @@ class DocumentNode(Base):
         doc="Type/category (code, document, adr, etc.)",
     )
 
+
+    text: str = Column(
+        Text,  # This will store the full source code of the artifact.
+        nullable=True,
+        doc="Source code text of the artifact."
+    )
     # ------------------------------------------------------------------
     # Relationships
     # ------------------------------------------------------------------

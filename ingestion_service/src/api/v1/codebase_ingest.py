@@ -1,17 +1,5 @@
-"""
-API Endpoints for Repository Ingestion
-
-Provides:
-- POST /v1/codebase/ingest-repo: ingest a Git repo or local path
-- GET  /v1/codebase/ingest-repo/{ingestion_id}: check ingestion status
-
-Integrates:
-- RepoGraphBuilder for code artifact graph construction
-- CodebaseGraphPersistence for deterministic node & relationship persistence
-- IngestionPipeline for embedding code artifacts
-"""
-
-from uuid import uuid4, UUID
+import uuid
+from uuid import uuid4, UUID, uuid5
 import threading
 import logging
 from pathlib import Path
@@ -71,7 +59,6 @@ def _build_pipeline(provider: str) -> IngestionPipeline:
     )
 
 
-
 # -----------------------------
 # Request / Response Models
 # -----------------------------
@@ -120,7 +107,7 @@ def _background_ingest_repo(
 
         # --- Build Repo Graph ---
         logger.debug(f"[{ingestion_id}] Building RepoGraph...")
-        builder = RepoGraphBuilder(repo_root=Path(repo_path),ingestion_id=ingestion_id)
+        builder = RepoGraphBuilder(repo_root=Path(repo_path), ingestion_id=ingestion_id)
         repo_graph = builder.build()
         logger.debug(f"[{ingestion_id}] RepoGraph built successfully")
 
@@ -139,19 +126,31 @@ def _background_ingest_repo(
         provider = settings.EMBEDDING_PROVIDER
         pipeline = _build_pipeline(provider)
 
-        #pipeline = IngestionPipeline()  # Can inject provider/embedder if needed
-        for node in nodes:#repo_graph.nodes:
+        # Corrected embedding loop with document_id lookup
+        for node in nodes:
             logger.debug(f"[{ingestion_id}] Embedding node id={node.get('id')} keys={node.keys()}")
             text = node.get("text", "")
             if text.strip():
-                pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="code", provider=provider or "ollama")
+                canonical_id = node["canonical_id"]
+
+                # Get the existing document_id from DB using canonical_id
+                doc_node = persistence.get_node_by_canonical_id(str(ingestion_id), canonical_id)
+
+                if doc_node:
+                    # Proceed with embedding and persistence
+                    chunks = pipeline._chunk(text, "code", provider)
+                    embeddings = pipeline._embed(chunks)
+                    pipeline._persist(chunks, embeddings, str(ingestion_id), doc_node.document_id)
+                else:
+                    logger.warning(f"Skipping node without DB record: {canonical_id}")
+            else:
+                logger.debug(f"[{ingestion_id}] Skipping node without text")
 
         StatusManager(session).mark_completed(ingestion_id)
         logger.info(f"✅ Repo ingestion completed: {ingestion_id}")
 
     except Exception as exc:
         logger.exception(f"❌ Repo ingestion failed: {ingestion_id}")
-        #logger.error(f"❌ Repo ingestion failed: {ingestion_id} - {exc}")
         StatusManager(session).mark_failed(ingestion_id, error=str(exc))
 
     finally:
@@ -211,3 +210,4 @@ def get_repo_ingest_status(ingestion_id: str) -> RepoIngestResponse:
             raise HTTPException(status_code=404, detail="Ingestion ID not found")
 
         return RepoIngestResponse(ingestion_id=request.ingestion_id, status=request.status)
+

@@ -21,6 +21,8 @@ def create_document_node(
     source: str,
     ingestion_id: UUID,
     doc_type: str,
+    canonical_id: str,           # ← ADD THIS
+    relative_path: str,          # ← ADD THIS
     repo_id: Optional[str] = None,  
 ) -> DocumentNode:
     """
@@ -51,6 +53,8 @@ def create_document_node(
         source=source,
         ingestion_id=ingestion_id,
         doc_type=doc_type,
+        canonical_id=canonical_id,       # ✅
+        relative_path=relative_path,     # ✅
         repo_id=repo_id or str(ingestion_id),  # Use ingestion_id if repo_id is None
     )
 

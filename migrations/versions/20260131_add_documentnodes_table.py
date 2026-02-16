@@ -32,7 +32,8 @@ def upgrade() -> None:
         summary_embedding vector(768),
         source TEXT NOT NULL,
         ingestion_id UUID NOT NULL REFERENCES ingestion_service.ingestion_requests(ingestion_id),
-        doc_type TEXT NOT NULL
+        doc_type TEXT NOT NULL,
+        text TEXT        
     )
     """)
 
