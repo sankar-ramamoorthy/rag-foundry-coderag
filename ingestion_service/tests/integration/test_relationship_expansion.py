@@ -6,7 +6,7 @@ from src.core.crud.document_relationships import create_document_relationship
 from src.core.crud.document_nodes import create_document_node
 from src.core.planners.relationship_expansion import expand_relationships_one_hop
 from src.core.models_v2.retrieval_plan import RetrievalPlan
-
+from src.core.codebase.identity import build_repo_id
 
 @pytest.mark.integration
 def test_expand_relationships_one_hop(session: Session):
@@ -27,9 +27,9 @@ def test_expand_relationships_one_hop(session: Session):
     doc_c_id = str(uuid.uuid4())
 
     # Create document nodes
-    create_document_node(session, document_id=doc_a_id, content="Doc A",repo_id=str(ingestion_id), )
-    create_document_node(session, document_id=doc_b_id, content="Doc B"repo_id=str(ingestion_id), )
-    create_document_node(session, document_id=doc_c_id, content="Doc C"repo_id=str(ingestion_id), )
+    create_document_node(session, document_id=doc_a_id, content="Doc A",repo_id = build_repo_id(repo_url), )
+    create_document_node(session, document_id=doc_b_id, content="Doc B"repo_id = build_repo_id(repo_url), )
+    create_document_node(session, document_id=doc_c_id, content="Doc C"repo_id = build_repo_id(repo_url), )
 
     # Create relationships
     create_document_relationship(session, from_document_id=doc_a_id, to_document_id=doc_b_id, relation_type="refers")

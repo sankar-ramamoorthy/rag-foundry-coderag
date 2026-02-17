@@ -310,7 +310,7 @@ source_type="file"                       | source_type="repo"
 │                                              │ (one per code entity)           │
 ├──────────────────────────────────────────────┼────────────────────────────────┤
 │ source="file_document_{ingestion_id}"        │ canonical_id=path[#symbol]      │
-│                                              │ repo_id=str(ingestion_id)       │
+│                                              │ repo_id = build_repo_id(repo_url)       │
 ├──────────────────────────────────────────────┼────────────────────────────────┤
 │ run() OR run_with_chunks()                   │ run() per code node             │
 │ (1 pipeline call)                            │ (N pipeline calls)              │
@@ -331,7 +331,7 @@ Codebase Flow (codebase_ingest.py):
 │ 1. CodebaseGraphPersistence.upsert_nodes(nodes)             │
 │    ↓                                                        │
 │    Creates/Updates DocumentNode via direct SQLAlchemy       │
-│    (repo_id=str(ingestion_id), canonical_id=path#symbol)    │  ← FIRST DocumentNode
+│    (repo_id = build_repo_id(repo_url), canonical_id=path#symbol)    │  ← FIRST DocumentNode
 │                                                             │
 │ 2. for each node: pipeline.run(text=node["text"])           │
 │    ↓                                                        │
@@ -344,7 +344,7 @@ Codebase Flow (codebase_ingest.py):
 ## What happens:
 
 1. **`CodebaseGraphPersistence.upsert_nodes()`** → **DocumentNode #1**
-   - `repo_id=str(ingestion_id)`
+   - `repo_id = build_repo_id(repo_url)`
    - `canonical_id=build_canonical_id(relative_path, symbol_path)`
    - `text=node["text"]`
    - **Purpose**: Code graph persistence with deterministic identity
@@ -353,7 +353,7 @@ Codebase Flow (codebase_ingest.py):
    - `document_id=uuid4()` *(different UUID)*
    - `source=f"file_document_{ingestion_id}"`
    - `doc_type="code"`
-   - `repo_id=str(ingestion_id)` *(same namespace)*
+   - `repo_id = build_repo_id(repo_url)` *(same namespace)*
    - **Purpose**: Vector store linking (but creates duplicate!)
 
 ## Result: Duplicate DocumentNodes per code entity

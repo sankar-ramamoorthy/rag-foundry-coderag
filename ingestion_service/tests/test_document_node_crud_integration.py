@@ -8,7 +8,7 @@ from src.core.crud import (
     create_document_node,
     get_document_node,
 )
-
+from src.core.codebase.identity import build_repo_id
 # ---------------------------------------------------------------------------
 # Schema validation (MS2-IS4 requirement)
 # For the above test to work, conftest.py must provide:
@@ -57,7 +57,7 @@ def test_document_node_crud(session):
         title="CRUD Test",
         text="Lorem Ipsum",
         metadata={},
-        repo_id=str(ingestion_id), 
+        repo_id = build_repo_id(repo_url), 
     )
 
     assert node.document_id == document_id

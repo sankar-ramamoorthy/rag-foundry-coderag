@@ -17,7 +17,7 @@ def upgrade() -> None:
     # Ensure pgvector extension exists
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-    # Create vector_chunks table
+    # Create vector_chunks table with ON DELETE CASCADE
     op.execute("""
     CREATE TABLE IF NOT EXISTS ingestion_service.vector_chunks (
         id SERIAL PRIMARY KEY,
@@ -29,7 +29,9 @@ def upgrade() -> None:
         chunk_text TEXT NOT NULL,
         source_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
         provider TEXT NOT NULL DEFAULT 'ollama',
-        document_id UUID REFERENCES ingestion_service.document_nodes(document_id)
+        document_id UUID
+            REFERENCES ingestion_service.document_nodes(document_id)
+            ON DELETE CASCADE
     )
     """)
 
