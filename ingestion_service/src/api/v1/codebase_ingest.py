@@ -20,7 +20,7 @@ from src.core.pipeline import IngestionPipeline
 from src.core.config import get_settings
 from shared.embedders.factory import get_embedder
 from src.core.http_vectorstore import HttpVectorStore
-
+from src.core.codebase.identity import build_repo_id
 # -----------------------------
 # Session and router
 # -----------------------------
@@ -99,15 +99,19 @@ def _background_ingest_repo(
             logger.debug(f"Cloning {git_url} into {temp_dir}")
             git.Repo.clone_from(git_url, temp_dir)
             repo_path = temp_dir
+            repo_id_url = git_url
         elif local_path:
             repo_path = str(Path(local_path).resolve())
             logger.info(f"[{ingestion_id}] Using local repo path: {repo_path}")
+            repo_id_url = repo_path
         else:
             raise ValueError("Either git_url or local_path must be provided")
+        logger.debug(f"build_repo_id({repo_id_url}) calculates repo_id = {build_repo_id(repo_id_url)}")
+        repo_id = build_repo_id(repo_id_url)
 
         # --- Build Repo Graph ---
         logger.debug(f"[{ingestion_id}] Building RepoGraph...")
-        builder = RepoGraphBuilder(repo_root=Path(repo_path), ingestion_id=ingestion_id)
+        builder = RepoGraphBuilder(repo_root=Path(repo_path), ingestion_id=str(ingestion_id))
         repo_graph = builder.build()
         logger.debug(f"[{ingestion_id}] RepoGraph built successfully")
 
@@ -116,10 +120,10 @@ def _background_ingest_repo(
         persistence = CodebaseGraphPersistence(session=session)
         nodes = repo_graph.all_entities()  # ✅ CORRECT method
         logger.debug(f"[{ingestion_id}] Sample node keys: {nodes[0].keys() if nodes else 'NO NODES'}")
-        persistence.upsert_nodes(repo_id=str(ingestion_id), nodes=nodes)
+        persistence.upsert_nodes(repo_id = repo_id, nodes=nodes)
 
         ## Relationships will be added in MS5 - skip for now
-        #persistence.upsert_relationships(repo_id=str(ingestion_id), relationships=repo_graph.relationships)
+        persistence.upsert_relationships(repo_id = repo_id, relationships=repo_graph.relationships)
 
         # --- Run embeddings via IngestionPipeline ---
         settings = get_settings()
@@ -134,7 +138,7 @@ def _background_ingest_repo(
                 canonical_id = node["canonical_id"]
 
                 # Get the existing document_id from DB using canonical_id
-                doc_node = persistence.get_node_by_canonical_id(str(ingestion_id), canonical_id)
+                doc_node = persistence.get_node_by_canonical_id(repo_id, canonical_id)
 
                 if doc_node:
                     # Proceed with embedding and persistence

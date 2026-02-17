@@ -1,3 +1,6 @@
+
+ms12_repo_delete.patch
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

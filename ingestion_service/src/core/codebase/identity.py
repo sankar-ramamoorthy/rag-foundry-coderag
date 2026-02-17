@@ -9,7 +9,7 @@ Follows ADR-031: Canonical Identity Model.
 from __future__ import annotations
 
 from pathlib import Path
-
+import uuid
 def build_canonical_id(
     relative_path: str,
     symbol_path: str | None = None
@@ -45,3 +45,14 @@ def build_global_id(repo_id: str, relative_path: str, symbol_path: str | None = 
     """
     canonical_id = build_canonical_id(relative_path, symbol_path)
     return (repo_id, canonical_id)
+
+def build_repo_id(repo_url: str) -> str:
+    """
+    Deterministic repository identity.
+    Same repo URL always generates same UUID.
+    """
+    normalized = repo_url.strip().lower().rstrip("/")
+    if normalized.endswith(".git"):
+        normalized = normalized[:-4]
+
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, normalized))

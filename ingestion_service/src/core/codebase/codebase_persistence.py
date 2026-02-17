@@ -38,6 +38,35 @@ class CodebaseGraphPersistence:
     # -----------------------------
     # Document Nodes
     # -----------------------------
+    def delete_repo_nodes(self, repo_id: str) -> int:
+        """
+        Safely delete all document nodes for a given repo_id.
+        Cascade deletes related vector chunks and relationships.
+        
+        Returns the number of nodes deleted.
+        """
+        try:
+            # Count before deletion
+            pre_count = self._session.query(DocumentNode).filter_by(repo_id=repo_id).count()
+            if pre_count == 0:
+                logger.info(f"[MS12] Repo {repo_id}: no nodes to delete")
+                return 0
+
+            # Delete nodes (cascade should handle relationships/vector chunks)
+            deleted_count = (
+                self._session.query(DocumentNode)
+                .filter_by(repo_id=repo_id)
+                .delete(synchronize_session=False)
+            )
+            self._session.commit()
+            logger.info(f"[MS12] Repo {repo_id}: deleted {deleted_count} old document nodes")
+            return deleted_count
+        except SQLAlchemyError as e:
+            logger.error(f"[MS12] Error deleting nodes for repo {repo_id}: {e}")
+            self._session.rollback()
+            raise
+
+
     def upsert_nodes(self, repo_id: str, nodes: List[dict]) -> None:
         """
         Upsert a list of nodes (functions, classes, modules) into document_nodes.
@@ -50,84 +79,68 @@ class CodebaseGraphPersistence:
         - source: source file path
         - summary: optional summary
         """
-        canonical_id = "unknown"
+
+        # ----------------------
+        # MS12 Repo-Level Deletion
+        # ----------------------
+        try:
+            with self._session.begin():  # atomic transaction
+                deleted_count = (
+                    self._session.query(DocumentNode)
+                    .filter(DocumentNode.repo_id == repo_id)
+                    .delete(synchronize_session=False)
+                )
+                logger.info(f"[MS12] Repo {repo_id}: deleted {deleted_count} old document nodes")
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to delete old nodes for repo {repo_id}: {e}")
+            self._session.rollback()
+            raise
+
+        # ----------------------
+        # Insert New Nodes
+        # ----------------------
         for node in nodes:
             try:
-                # Ensure title is set if missing
                 if "title" not in node:
-                    node["title"] = "Untitled"  # Fallback if no title is present
+                    node["title"] = "Untitled"
                 if "doc_type" not in node:
-                    node["doc_type"] = "unknown"  # Fallback if no doc_type is present
-                # Ensure 'source' is set if missing
+                    node["doc_type"] = "unknown"
                 if "source" not in node:
-                    node["source"] = node.get("relative_path", "unknown_source")  
+                    node["source"] = node.get("relative_path", "unknown_source")
                 if "relative_path" not in node:
                     node["relative_path"] = "Unknown"
                 if "canonical_id" not in node:
-                    canonical_id = build_canonical_id(node["relative_path"], node.get("symbol_path"))
-                    node["canonical_id"] = canonical_id
-                canonical_id = node["canonical_id"]    
-                logger.debug(f"in upsertnodes: canonical_id {canonical_id}")
-                   
- 
+                    node["canonical_id"] = build_canonical_id(node["relative_path"], node.get("symbol_path"))
+                canonical_id = node["canonical_id"]
+                logger.debug(f"upsert_nodes canonical_id = {canonical_id}")
+                document_node_data = {
+                    'repo_id': repo_id,
+                    'canonical_id': canonical_id,
+                    'relative_path': node.get('relative_path', 'unknown'),
+                    'symbol_path': node.get('symbol_path'),
+                    'title': node.get('title', 'Untitled'),
+                    'summary': node.get('summary', ''),
+                    'source': node.get('source', node.get('relative_path', 'unknown')),
+                    'ingestion_id': str(node.get('ingestion_id')),
+                    'doc_type': node.get('doc_type', 'unknown'),
+                    'text': node.get('text', ''),
+                }
+                new_node = DocumentNode(**document_node_data)
+                self._session.add(new_node)
+                logger.debug(f"[MS12] Inserted DocumentNode with canonical_id : {canonical_id}")
 
-                existing = (
-                    self._session.query(DocumentNode)
-                    .filter_by(repo_id=repo_id, canonical_id=canonical_id)
-                    .first()
-                )
-                if existing:
-                    existing.update_from_dict(node)
-                else:
-                    #new_node = DocumentNode(**node)
-                    #self._session.add(new_node)
-                    document_node_data = {
-                        'repo_id': repo_id,
-                        'canonical_id': canonical_id,
-                        'relative_path': node.get('relative_path', 'unknown'),
-                        'symbol_path': node.get('symbol_path'),
-                        'title': node.get('title', 'Untitled'),
-                        'summary': node.get('summary', ''),
-                        'source': node.get('source', node.get('relative_path', 'unknown')),
-                        'ingestion_id': str(node.get('ingestion_id')),
-                        'doc_type': node.get('doc_type', 'unknown'),
-                        'text': node.get('text', ''),
-                    }
-                    new_node = DocumentNode(**document_node_data)
-                    self._session.add(new_node)
-#                if existing:
-#                    # Update existing node
-#                    existing.ingestion_id = node.get("ingestion_id", existing.ingestion_id)
-#                    existing.title = node.get("title", existing.title)
-#                    existing.summary = node.get("summary", existing.summary)
-#                    existing.doc_type = node.get("doc_type", existing.doc_type)
-#                    existing.source = node.get("source", existing.source)
-#                    existing.relative_path = node.get("relative_path", existing.relative_path)
-#                    if "text" in node:
-#                        existing.text = node["text"]  # Update the text if it exists
-#                    logger.debug(f"Updated DocumentNode: {canonical_id}")
-#                else:
-#                    # Insert new node
-#                    if "text" not in node:
-#                         node["text"]  = " "
-#                    new_node = DocumentNode(
-#                        repo_id=repo_id,
-#                        canonical_id=canonical_id,
-#                        title=node["title"],
-#                        summary=node.get("summary", ""),
-#                        doc_type=node["doc_type"],
-#                        source=node["source"],
-#                        relative_path=node["relative_path"],
-#                        ingestion_id=node["ingestion_id"],
-#                        text=node["text"]
-#                    )
-#                    self._session.add(new_node)
-                    logger.debug(f"Inserted DocumentNode: {canonical_id}")
             except SQLAlchemyError as e:
-                logger.error(f"Error upserting node {canonical_id}: {e}")
+                logger.error(f"Error upserting node {node.get('canonical_id', 'unknown')}: {e}")
                 self._session.rollback()
                 raise
-        self._session.commit()
+
+        # Commit all inserts
+        try:
+            self._session.commit()
+        except SQLAlchemyError as e:
+            logger.error(f"Error committing new nodes for repo {repo_id}: {e}")
+            self._session.rollback()
+            raise
 
     # -----------------------------
     # Document Relationships
@@ -136,15 +149,19 @@ class CodebaseGraphPersistence:
         """
         Upsert relationships between nodes into document_relationships.
 
-        Each relationship dict must include:
-        - from_relative_path / from_symbol_path
-        - to_relative_path / to_symbol_path
-        - relation_type
-        - relationship_metadata (optional)
+        Expected relationship format:
+
+        {
+            "from_canonical_id": str,
+            "to_canonical_id": str,
+            "relation_type": str,
+            "relationship_metadata": dict
+        }
         """
+
         for rel in relationships:
-            from_canonical = build_canonical_id(rel["from_relative_path"], rel.get("from_symbol_path"))
-            to_canonical = build_canonical_id(rel["to_relative_path"], rel.get("to_symbol_path"))
+            from_canonical = rel["from_canonical_id"]
+            to_canonical = rel["to_canonical_id"]
 
             try:
                 from_node = (
@@ -157,11 +174,13 @@ class CodebaseGraphPersistence:
                     .filter_by(repo_id=repo_id, canonical_id=to_canonical)
                     .first()
                 )
+
                 if not from_node or not to_node:
-                    logger.warning(f"Skipping relationship: {from_canonical} -> {to_canonical} (nodes missing)")
+                    logger.warning(
+                        f"Skipping relationship: {from_canonical} -> {to_canonical} (nodes missing)"
+                    )
                     continue
 
-                # Check if relationship exists
                 existing = (
                     self._session.query(DocumentRelationship)
                     .filter_by(
@@ -171,12 +190,16 @@ class CodebaseGraphPersistence:
                     )
                     .first()
                 )
+
                 if existing:
-                    # Update metadata if needed
-                    existing.relationship_metadata = rel.get("relationship_metadata", existing.relationship_metadata)
-                    logger.debug(f"Updated DocumentRelationship: {from_canonical} -> {to_canonical}")
+                    existing.relationship_metadata = rel.get(
+                        "relationship_metadata",
+                        existing.relationship_metadata
+                    )
+                    logger.debug(
+                        f"Updated DocumentRelationship: {from_canonical} -> {to_canonical}"
+                    )
                 else:
-                    # Insert new relationship
                     new_rel = DocumentRelationship(
                         from_document_id=from_node.document_id,
                         to_document_id=to_node.document_id,
@@ -184,13 +207,18 @@ class CodebaseGraphPersistence:
                         relationship_metadata=rel.get("relationship_metadata", {})
                     )
                     self._session.add(new_rel)
-                    logger.debug(f"Inserted DocumentRelationship: {from_canonical} -> {to_canonical}")
+                    logger.debug(
+                        f"Inserted DocumentRelationship: {from_canonical} -> {to_canonical}"
+                    )
+
             except SQLAlchemyError as e:
-                logger.error(f"Error upserting relationship {from_canonical} -> {to_canonical}: {e}")
+                logger.error(
+                    f"Error upserting relationship {from_canonical} -> {to_canonical}: {e}"
+                )
                 self._session.rollback()
                 raise
-        self._session.commit()
 
+        self._session.commit()
     # -----------------------------
     # Retrieval
     # -----------------------------
