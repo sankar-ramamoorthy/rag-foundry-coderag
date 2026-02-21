@@ -1,23 +1,21 @@
-from typing import List, Optional
+# rag_orchestrator/src/api/v1/models.py (UPDATED)
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel
 
-
-# Model to handle the search query and its parameters
-class SearchQuery(BaseModel):
-    question: str
-    top_k: int = 5  # Default to top 5 search results
-
-
-# Model for the RAG (retrieval-augmented generation) query input
 class RAGQuery(BaseModel):
     query: str
+    repo_id: Optional[str] = None  # NEW: Repo selection
     top_k: int = 5
-    provider: Optional[str] = None  # Optional: If specified, will be passed to the LLM
-    model: Optional[str] = None  # Optional: If specified, will be passed to the LLM
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
-
-# Model for the response from the RAG process
-class RAGResponse(BaseModel):
+class RAGResponse(BaseModel):  # Updated name
     answer: str
-    sources: List[str]  # List of sources from which the answer was generated
+    sources: List[str]
+    repo_id: str  # NEW
+    retrieval_plan: Dict[str, Any]  # NEW: Graph expansion details
+
+class SearchQuery(BaseModel):
+    question: str
+    top_k: int = 5

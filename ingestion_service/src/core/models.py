@@ -1,12 +1,11 @@
 # ingestion_service/src/core/models.py (classic style - Pyright perfect)
 import uuid
-from sqlalchemy import Column, String, JSON, TIMESTAMP, MetaData  # ← Add MetaData here
+from sqlalchemy import Column, String, JSON, TIMESTAMP 
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base
+
 from sqlalchemy.sql import text
 
-metadata = MetaData(schema="ingestion_service")  # Now defined
-Base = declarative_base(metadata=metadata)
+from shared.models.base import Base
 
 
 class IngestionRequest(Base):

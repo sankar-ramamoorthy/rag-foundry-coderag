@@ -1,4 +1,4 @@
-# ingestion_service/src/core/models_v2/document_node.py
+# shared\models\document_node.py
 """
 ORM model for DocumentNodes table using pgvector.
 
@@ -23,7 +23,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.orm import relationship
-from src.core.models import Base
+from shared.models.base import Base
 import uuid
 import logging
 from pgvector.sqlalchemy import Vector

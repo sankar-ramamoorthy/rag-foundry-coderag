@@ -5,7 +5,7 @@ from uuid import UUID
 import logging
 
 from sqlalchemy.orm import Session
-from src.core.models_v2.document_node import DocumentNode
+from shared.models.document_node import DocumentNode
 
 # Set up logging
 logger = logging.getLogger(__name__)

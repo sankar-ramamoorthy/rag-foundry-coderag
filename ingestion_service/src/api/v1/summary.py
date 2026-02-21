@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from uuid import UUID
 
 from src.core.database_session import get_sessionmaker
-from src.core.models_v2 import DocumentNode
+from shared.models.document_node import DocumentNode
 
 SessionLocal = get_sessionmaker()
 router = APIRouter(tags=["summary"])

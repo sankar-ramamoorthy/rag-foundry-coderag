@@ -1,7 +1,8 @@
 # ingestion_service/tests/test_retrieval_planner.py
 import pytest
-from src.core.models_v2.retrieval_plan import RetrievalPlan
+from src.core.retrieval.retrieval_plan import RetrievalPlan  
 from src.core.planner import expand_retrieval_plan
+
 from src.core.crud.document_relationships import DocumentRelationship
 
 # Mock relationships

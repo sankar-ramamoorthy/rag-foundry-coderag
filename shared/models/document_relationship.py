@@ -1,4 +1,4 @@
-# ingestion_service/src/core/models_v2/document_relationship.py
+# shared\models\document_relationship.py
 """
 ORM model for DocumentRelationship table.
 Tracks relationships between DocumentNodes.
@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, func
 from sqlalchemy.orm import relationship
-from src.core.models import Base
+from shared.models.base import Base
 import logging
 
 if TYPE_CHECKING:
