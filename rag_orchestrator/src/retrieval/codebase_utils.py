@@ -1,56 +1,57 @@
-# rag_orchestrator/src/retrieval/codebase_utils.py
 """
 Utilities for hybrid vector+graph retrieval.
 """
-from typing import Set, Dict, Optional, List
-
-from functools import lru_cache
+from typing import Set, Dict, List
 import logging
-
-
+import requests
 from .codebase_queries import CodebaseGraph, load_graph_for_repo
-from .types import RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
-# Global graph cache (single repo for M1)
 _repo_graphs: Dict[str, CodebaseGraph] = {}
 
+
+def extract_canonical_ids_from_chunks(chunks: List) -> Set[str]:
+    """
+    Extract canonical_ids from retrieved chunk metadata.
+    """
+    canonical_ids: Set[str] = set()
+    for chunk in chunks:
+        metadata = getattr(chunk, "metadata", {}) or {}
+        cid = metadata.get("canonical_id")
+        if cid:
+            canonical_ids.add(cid)
+    logger.debug(f"Extracted {len(canonical_ids)} canonical_ids from {len(chunks)} chunks")
+    return canonical_ids
+
+
 def canonical_ids_to_document_ids(
-    repo_id: str, 
-    canonical_ids: Set[str], 
-    db: Session
+    repo_id: str,
+    canonical_ids: Set[str]
 ) -> Set[str]:
     """
-    Convert canonical_ids → document_ids for a repo.
-    
-    >>> canonical_ids_to_document_ids("repo1", {"math_utils.py"}, db)
-    {"doc-uuid-1", "doc-uuid-2"}
+    Convert canonical_ids → document_ids for a repo using ingestion_service API.
     """
     if not canonical_ids:
         return set()
-    
-    document_ids = {
-        node.document_id 
-        for node in db.query(DocumentNode)
-        .filter(DocumentNode.repo_id == repo_id)
-        .filter(DocumentNode.canonical_id.in_(canonical_ids))
-        .all()
-    }
-    logger.debug(f"Resolved {len(canonical_ids)} canonical_ids → {len(document_ids)} document_ids")
-    return document_ids
+    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/nodes"
+    response = requests.get(url, params={"canonical_ids": ",".join(canonical_ids)})
+    if response.status_code == 200:
+        document_ids = {node['document_id'] for node in response.json().get("nodes", [])}
+        logger.debug(f"Resolved {len(canonical_ids)} canonical_ids → {len(document_ids)} document_ids")
+        return document_ids
+    else:
+        logger.error(f"Error resolving canonical_ids: {response.status_code} - {response.text}")
+        return set()
 
-def get_cached_graph(repo_id: str, db: Session, force_reload: bool = False) -> CodebaseGraph:
+
+def get_cached_graph(repo_id: str, force_reload: bool = False) -> CodebaseGraph:
     """
     Get CodebaseGraph for repo_id (in-memory cached).
     """
     global _repo_graphs
-    
     if force_reload or repo_id not in _repo_graphs:
         logger.info(f"Loading graph for repo_id={repo_id[:8]}...")
-        _repo_graphs[repo_id] = load_graph_for_repo(repo_id, db)
+        _repo_graphs[repo_id] = load_graph_for_repo(repo_id)
         logger.info(f"Graph loaded: {len(_repo_graphs[repo_id].nodes)} nodes")
-    
     return _repo_graphs[repo_id]
-
-

@@ -1,26 +1,8 @@
-"""
-src/retrieval/codebase_queries.py
-
-Graph-aware traversal utilities for codebase artifacts.
-
-This module provides BFS/DFS traversal over canonical artifact graphs,
-supporting:
-- Directional queries (forward / reverse)
-- Relation-type filtering (CALL, DEFINES)
-- Depth-limited multi-hop searches
-- Deterministic ordering
-
-Author: 
-"""
-
 from collections import deque, defaultdict
 from typing import List, Set, Dict, Optional
-from sqlalchemy.orm import Session
-from typing import Dict
-#from ingestion_service.models import DocumentNode, DocumentRelationship
-from shared.models.base import DocumentNode, DocumentRelationship
+import requests  # New import to call the ingestion service API
 
-
+# --- Graph Classes ---
 class Node:
     """
     Represents a single artifact node in the graph.
@@ -34,7 +16,6 @@ class Node:
 
     def __repr__(self):
         return f"Node({self.canonical_id})"
-
 
 class CodebaseGraph:
     """
@@ -57,10 +38,7 @@ class CodebaseGraph:
     def get_node(self, canonical_id: str) -> Optional[Node]:
         return self.nodes.get(canonical_id)
 
-
-# -------------------------------
-# Traversal Utilities
-# -------------------------------
+# --- Traversal Functions ---
 
 def bfs_traversal(
     graph: CodebaseGraph,
@@ -71,16 +49,6 @@ def bfs_traversal(
 ) -> List[Node]:
     """
     Breadth-first traversal of graph starting from a node.
-
-    Args:
-        graph: CodebaseGraph object
-        start_cid: canonical_id to start traversal from
-        relation_types: filter edges by type (CALL, DEFINES, etc.)
-        direction: 'forward' (out_edges) or 'reverse' (in_edges)
-        max_depth: maximum traversal depth
-
-    Returns:
-        List of nodes reached during traversal (excluding start node)
     """
     start_node = graph.get_node(start_cid)
     if not start_node:
@@ -114,94 +82,100 @@ def bfs_traversal(
 
     return results
 
-
 # -------------------------------
 # Convenience Traversals
 # -------------------------------
 
 def traverse_calls(graph: CodebaseGraph, start_cid: str, depth: int = 3) -> List[Node]:
-    """Traverse CALL edges forward."""
+    """Traverse CALL edges forward (what does this node call?)."""
     return bfs_traversal(graph, start_cid, relation_types={"CALL"}, direction="forward", max_depth=depth)
 
 
 def traverse_defines(graph: CodebaseGraph, start_cid: str, depth: int = 3) -> List[Node]:
-    """Traverse DEFINES edges forward."""
+    """Traverse DEFINES edges forward (what does this node define?)."""
     return bfs_traversal(graph, start_cid, relation_types={"DEFINES"}, direction="forward", max_depth=depth)
 
 
 def traverse_incoming_calls(graph: CodebaseGraph, start_cid: str, depth: int = 3) -> List[Node]:
-    """Traverse CALL edges in reverse (incoming)."""
+    """Traverse CALL edges in reverse (what calls this node?)."""
     return bfs_traversal(graph, start_cid, relation_types={"CALL"}, direction="reverse", max_depth=depth)
 
 
 def traverse_incoming_imports(graph: CodebaseGraph, start_cid: str, depth: int = 3) -> List[Node]:
-    """Traverse IMPORT edges in reverse (incoming)."""
+    """Traverse IMPORT edges in reverse (what imports this node?)."""
     return bfs_traversal(graph, start_cid, relation_types={"IMPORT"}, direction="reverse", max_depth=depth)
 
+# --- API Calls ---
 
-# -------------------------------
-# Graph Loader (Stub)
-# -------------------------------
-
-
-
-def load_graph_for_repo(repo_id: str, db: Session) -> CodebaseGraph:
+def get_nodes_by_canonical_ids_from_api(repo_id: str, canonical_ids: List[str]) -> List[Dict]:
     """
-    Build an in-memory CodebaseGraph from persisted document_nodes
-    and document_relationships for a given repo_id.
+    Fetch nodes by canonical_ids from the ingestion_service API (instead of directly querying DB).
+    """
+    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/nodes"
+    params = {"canonical_ids": ",".join(canonical_ids)}
+    response = requests.get(url, params=params)
 
-    Args:
-        repo_id: Repository UUID
-        db: SQLAlchemy session
+    if response.status_code == 200:
+        return response.json().get('nodes', [])
+    else:
+        raise Exception(f"Error fetching nodes: {response.status_code} - {response.text}")
 
-    Returns:
-        CodebaseGraph
+
+def get_full_graph_from_api(repo_id: str) -> Dict:
+    """
+    Fetch the full graph (nodes and relationships) for a given repository
+    from the ingestion_service API.
+    """
+    url = f"http://ingestion_service/v1/graph/repos/{repo_id}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        return response.json()  # returns both nodes and edges
+    else:
+        raise Exception(f"Error fetching full graph: {response.status_code} - {response.text}")
+    
+def get_relationships_from_api(repo_id: str, canonical_ids: List[str]) -> List[Dict]:
+    """
+    Fetch relationships (edges) for a set of canonical_ids from the ingestion_service API.
+    """
+    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/relationships"
+    params = {"canonical_ids": ",".join(canonical_ids)}
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        return response.json().get('relationships', [])
+    else:
+        raise Exception(f"Error fetching relationships: {response.status_code} - {response.text}")
+
+# --- Graph Loading ---
+
+def load_graph_for_repo(repo_id: str) -> CodebaseGraph:
+    """
+    Build an in-memory CodebaseGraph from the ingestion_service API.
+    Uses get_full_graph_from_api to fetch nodes and relationships in one call.
     """
     graph = CodebaseGraph()
 
-    # ----------------------------
-    # 1. Load Nodes
-    # ----------------------------
-    nodes = (
-        db.query(DocumentNode)
-        .filter(DocumentNode.repo_id == repo_id)
-        .all()
-    )
+    # Single API call returns {"nodes": {canonical_id: node_dict}, "relationships": {from_cid: [edges]}}
+    graph_data = get_full_graph_from_api(repo_id)
 
-    if not nodes:
-        return graph
-
-    # Map DB id -> canonical_id
-    id_to_canonical: Dict[str, str] = {}
-
-    for node in nodes:
+    # Step 1: Load Nodes
+    # graph_data["nodes"] is a dict: canonical_id -> node dict
+    for canonical_id, node in graph_data.get("nodes", {}).items():
         new_node = Node(
-            canonical_id=node.canonical_id,
-            file_path=node.file_path,
-            lineno=getattr(node, "lineno", None),
+            canonical_id=canonical_id,
+            file_path=node.get("relative_path"),
+            lineno=node.get("lineno"),
         )
         graph.add_node(new_node)
-        id_to_canonical[node.id] = node.canonical_id
 
-    # ----------------------------
-    # 2. Load Relationships
-    # ----------------------------
-    relationships = (
-        db.query(DocumentRelationship)
-        .filter(DocumentRelationship.from_document_id.in_(id_to_canonical.keys()))
-        .all()
-    )
-
-    for rel in relationships:
-        from_cid = id_to_canonical.get(rel.from_document_id)
-        to_cid = id_to_canonical.get(rel.to_document_id)
-
-        if from_cid and to_cid:
-            graph.add_edge(
-                from_cid,
-                to_cid,
-                rel.relation_type
-            )
+    # Step 2: Load Relationships
+    # graph_data["relationships"] is a dict: from_canonical_id -> [{"to_canonical_id": ..., "relation_type": ...}]
+    for from_cid, edges in graph_data.get("relationships", {}).items():
+        for edge in edges:
+            to_cid = edge.get("to_canonical_id")
+            relation_type = edge.get("relation_type")
+            if from_cid in graph.nodes and to_cid in graph.nodes:
+                graph.add_edge(from_cid, to_cid, relation_type)
 
     return graph
-

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # Base URL for the ingestion service where summaries live
-INGESTION_API_BASE_URL = "http://ingestion_service:8001"
+INGESTION_API_BASE_URL = "http://ingestion_service:8000"
 
 
 def fetch_summaries(document_ids: List[str]) -> Dict[str, str]:

@@ -13,12 +13,11 @@ from uuid import UUID
 import logging
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
 
 from .database_session import get_sessionmaker
 from .models import IngestionRequest
 from shared.models.document_node import DocumentNode
-
+from shared.models.document_relationship import DocumentRelationship
 logger = logging.getLogger(__name__)
 SessionLocal = get_sessionmaker()
 
@@ -41,12 +40,12 @@ def create_ingestion_request(
         ingestion_id = uuid4()
 
     with SessionLocal() as session:
-        req = IngestionRequest(
-            ingestion_id=ingestion_id,
-            source_type=source_type,
-            metadata=metadata,
-            status="accepted",
-        )
+        req = IngestionRequest()
+        req.ingestion_id=ingestion_id
+        req.source_type=source_type
+        req.ingestion_metadata=metadata  # Use correct field name here
+        req.status="accepted"
+        
         session.add(req)
         session.commit()
 
@@ -98,7 +97,7 @@ def list_complete_repos() -> List[Dict]:
                 IngestionRequest,
                 DocumentNode.ingestion_id == IngestionRequest.ingestion_id,
             )
-            .filter(IngestionRequest.status == "complete")
+            .filter(IngestionRequest.status == "completed")
             .group_by(
                 DocumentNode.repo_id,
                 DocumentNode.ingestion_id,
@@ -132,7 +131,7 @@ def list_complete_repos() -> List[Dict]:
                     "ingestion_id": ingestion_id,
                     "status": status,
                     "created_at": created_at,
-                    "file_count": int(node_count or 0),
+                    "file_count": int(file_count or 0),  # Correct usage of file_count
                     "node_count": int(node_count or 0),
                 }
             )
@@ -174,3 +173,38 @@ def get_document_nodes_by_canonical_ids(
         )
 
         return nodes
+
+
+def get_full_graph_for_repo(repo_id: str) -> Dict:
+    """
+    This function loads both nodes (document_nodes) and relationships 
+    for the given repo and returns a full graph.
+    """
+    with SessionLocal() as session:
+        # Load nodes
+        nodes = (
+            session.query(DocumentNode)
+            .filter(DocumentNode.repo_id == repo_id)
+            .all()
+        )
+        node_data = {node.canonical_id: node for node in nodes}
+
+        # Load relationships (edges)
+        relationships = (
+            session.query(DocumentRelationship)
+            .filter(DocumentRelationship.repo_id == repo_id)
+            .all()
+        )
+        rel_data = {}
+        for rel in relationships:
+            if rel.from_canonical_id not in rel_data:
+                rel_data[rel.from_canonical_id] = []
+            rel_data[rel.from_canonical_id].append({
+                "to_canonical_id": rel.to_canonical_id,
+                "relation_type": rel.relation_type,
+            })
+
+        return {
+            "nodes": node_data,
+            "relationships": rel_data,
+        }

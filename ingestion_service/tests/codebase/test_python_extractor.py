@@ -1,5 +1,5 @@
 import pytest
-from ingestion_service.src.core.extractors import python_extractor
+from src.core.extractors import python_extractor
 
 # Path to the file we want to test on (here we use the extractor itself)
 SAMPLE_FILE_PATH = "core/extractors/python_extractor.py"

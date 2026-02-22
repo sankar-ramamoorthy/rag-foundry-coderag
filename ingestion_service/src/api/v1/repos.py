@@ -5,9 +5,10 @@ from typing import List
 from pydantic import BaseModel
 from datetime import datetime
 
-from ingestion_service.src.core import db_utils
+from src.core import db_utils
 
-router = APIRouter(prefix="/v1", tags=["repos"])
+#router = APIRouter(prefix="/v1", tags=["repos"])
+router = APIRouter(tags=["repos"])
 
 
 class RepoSummary(BaseModel):
@@ -31,7 +32,7 @@ async def list_repos():
     result: List[RepoSummary] = []
 
     for row in repo_rows:
-        repo_id = row["repo_id"]
+        repo_id = str(row["repo_id"]) 
         ingestion_id = row["ingestion_id"]
         status = row["status"]
         created_at = row["created_at"]

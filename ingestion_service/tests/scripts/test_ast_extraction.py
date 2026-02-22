@@ -1,6 +1,6 @@
 import os
 import pytest
-from ingestion_service.src.core.extractors import python_extractor
+from src.core.extractors import python_extractor
 
 # ----------------------------
 # Fixture: PythonASTExtractor on its own file

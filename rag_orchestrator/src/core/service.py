@@ -65,7 +65,7 @@ async def resolve_repo_id_http(repo_id: Optional[str]) -> str:
             raise HTTPException(404, "Repository not found")
 
         # Otherwise use first complete repo
-        complete = [r for r in repos if r.get("status") == "complete"]
+        complete = [r for r in repos if r.get("status") == "completed"]
         if complete:
             selected = complete[0]["id"]
             logger.info(f"Using first complete repo: {selected[:8]}...")

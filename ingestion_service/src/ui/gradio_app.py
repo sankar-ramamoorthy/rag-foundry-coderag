@@ -137,18 +137,22 @@ def refresh_repos():
         choices = [
             (repo["display_name"], repo["id"]) 
             for repo in repos 
-            if repo["status"] == "complete"
+            if repo["status"] == "completed"
         ]
         
         if choices:
             value = choices[0][1]  # Auto-select first complete repo
-            return gr.update(choices=choices, value=value)
+            #return gr.update(choices=choices, value=value)
+            return gr.Dropdown(choices=choices, value=value)
+        
         else:
             gr.Warning("No complete repositories found. Ingest a codebase first.")
-            return gr.update(choices=[], value=None)
+            #return gr.update(choices=[], value=None)
+            return gr.Dropdown(choices=[], value=None)
     except Exception as e:
         gr.Error(f"Failed to fetch repos: {e}")
-        return gr.update(choices=[], value=None)
+        #return gr.update(choices=[], value=None)
+        return gr.Dropdown(choices=[], value=None)
 
 def submit_rag_query(query: str, repo_id: str | None, top_k: int, provider: str | None, model: str | None):
     """Submit RAG query with repo_id."""

@@ -16,9 +16,9 @@ router = APIRouter(prefix="/v1/summarize", tags=["summaries"])
 logger = logging.getLogger(__name__)
 logger.debug(f"summarize.py router: {router}")
 
-# MS7: Reuse vector_store_service + llm-service URLs from ingestion_service pattern
+# MS7: Reuse vector_store_service + llm_service URLs from ingestion_service pattern
 VECTOR_STORE_URL = "http://vector_store_service:8002"
-LLM_SERVICE_URL = "http://llm-service:8000"
+LLM_SERVICE_URL = "http://llm_service:8000"
 logger.debug(f"summarize.py LLM_SERVICE_URL: {LLM_SERVICE_URL}")
 
 async def fetch_chunks(ingestion_id: str) -> List[str]:
@@ -47,7 +47,7 @@ async def fetch_chunks(ingestion_id: str) -> List[str]:
 async def update_document_summary(ingestion_id: str, summary: str):
     """Update document_nodes.summary via ingestion-service DB."""
     # MS7-IS3: Direct DB update via ingestion-service (create endpoint later)
-    ingestion_service_url = "http://ingestion-service:8001/v1/summary"
+    ingestion_service_url = "http://ingestion_service:8000/v1/summary"
     logger.debug(f"summarize.py update_document_summary : {ingestion_service_url}")
     logger.info(f"summarize.py update_document_summary : {ingestion_service_url}")
     logger.info(f"summarize.py update_document_summary summary is : {summary}")

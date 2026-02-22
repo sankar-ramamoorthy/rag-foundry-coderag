@@ -13,7 +13,8 @@ COPY shared /app/shared
 WORKDIR /app/ingestion_service
 RUN uv sync --extra ui --no-dev
 
-ENV API_BASE_URL=http://ingestion_service:8001
+ENV API_BASE_URL=http://ingestion_service:8000
+ENV RAG_API_BASE_URL=http://rag_orchestrator:8000
 ENV PYTHONPATH=/app:/app/shared
 
 CMD ["uv", "run", "--directory", "/app/ingestion_service", "-m", "src.ui.gradio_app"]

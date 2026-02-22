@@ -119,7 +119,7 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
             StatusManager(session).mark_completed(ingestion_id)
 
         # Fire-and-forget summary trigger
-        summary_url = f"http://llm-service:8000/v1/summarize/{ingestion_id}"
+        summary_url = f"http://llm_service:8000/v1/summarize/{ingestion_id}"
         try:
             httpx.post(summary_url, timeout=1000)
             logger.info(f"✅ Summary task dispatched: {summary_url}")

@@ -32,9 +32,9 @@ RUN uv sync
 ENV PYTHONPATH=/app:/app/shared
 
 # Expose ingestion service port
-EXPOSE 8001
+EXPOSE 8000
 
 # Default command to run the ingestion service
 CMD ["uv", "run", "--directory", "/app/ingestion_service", \
      "uvicorn", "src.api.v1.main:app", \
-     "--host", "0.0.0.0", "--port", "8001"]
+     "--host", "0.0.0.0", "--port", "8000"]

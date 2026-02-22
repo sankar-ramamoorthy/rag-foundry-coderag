@@ -62,7 +62,7 @@ GET /v1/repos → [
     "id": "123e4567...",
     "name": "payments-service", 
     "display_name": "Payments Service",
-    "status": "complete",
+    "status": "completed",
     "file_count": 42
   }
 ]
