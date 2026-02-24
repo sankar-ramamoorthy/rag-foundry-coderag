@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 import uuid
 
 from src.core.crud.document_relationships import create_document_relationship
-from src.core.crud.document_nodes import create_document_node
+from src.core.crud.crud_document_node import create_document_node
 from src.core.planners.relationship_expansion import expand_relationships_one_hop
-from src.core.models_v2.retrieval_plan import RetrievalPlan
+from shared.retrieval.retrieval_plan import RetrievalPlan 
 from src.core.codebase.identity import build_repo_id
 
 @pytest.mark.integration

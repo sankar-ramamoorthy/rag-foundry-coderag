@@ -1,4 +1,4 @@
-# ingestion_service/src/core/models_v2/vector_chunk.py
+# shared\models\vector_chunk.py
 """
 ORM model for VectorChunks table using pgvector.
 Represents embedding chunks linked to a DocumentNode.
@@ -7,7 +7,7 @@ Represents embedding chunks linked to a DocumentNode.
 from typing import TYPE_CHECKING
 from sqlalchemy import Column, String, JSON, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from src.core.models import Base
+from shared.models.base import Base
 import uuid
 
 from pgvector.sqlalchemy import Vector  # pgvector type for SQLAlchemy

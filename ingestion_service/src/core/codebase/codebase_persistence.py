@@ -6,7 +6,7 @@ Supports deterministic upserts using repo_id + canonical_id, and manages
 document nodes, relationships, and vector links.
 
 Requires:
-- SQLAlchemy ORM models: DocumentNode, DocumentRelationship, VectorChunk
+- SQLAlchemy ORM models: DocumentNode, DocumentRelationship #, VectorChunk
 - RepoGraphBuilder output nodes and relationships
 """
 
@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
-from src.core.models_v2.document_node import DocumentNode
-from src.core.models_v2.document_relationship import DocumentRelationship
-from src.core.models_v2.vector_chunk import VectorChunk
+from shared.models.document_node import DocumentNode
+from shared.models.document_relationship import DocumentRelationship
+#from shared.models.vector_chunk import VectorChunk
 from src.core.database_session import get_sessionmaker
 from src.core.codebase.identity import build_canonical_id
 

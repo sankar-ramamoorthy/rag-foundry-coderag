@@ -14,7 +14,7 @@ sys.path.insert(
 # -----------------------------------------------------
 # Import SQLAlchemy Base metadata
 # -----------------------------------------------------
-from ingestion_service.src.core.models import Base
+from shared.models.base import Base
 
 # -----------------------------------------------------
 # Alembic config
@@ -39,8 +39,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Metadata used for autogenerate
-target_metadata: MetaData = Base.metadata  # type: ignore[attr-defined]
-
+target_metadata = Base.metadata
 # -----------------------------------------------------
 # Environment flags
 # -----------------------------------------------------

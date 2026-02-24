@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     # -------------------------------------------------
     # Service URLs (Docker service names)
     # -------------------------------------------------
-    VECTOR_STORE_URL: str = "http://vector-store-service:8002"
-    LLM_SERVICE_URL: str = "http://llm-service:8000"
+    VECTOR_STORE_URL: str = "http://vector_store_service:8002"
+    LLM_SERVICE_URL: str = "http://llm_service:8000"
+    INGESTION_SERVICE_URL: str = "http://ingestion_service:8000"
 
     model_config = SettingsConfigDict(
         env_file=".env",

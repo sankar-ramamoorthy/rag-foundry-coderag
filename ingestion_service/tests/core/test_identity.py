@@ -1,5 +1,5 @@
 import pytest
-from ingestion_service.src.core.codebase.identity import build_canonical_id, build_global_id
+from src.core.codebase.identity import build_canonical_id, build_global_id
 
 def test_build_canonical_id_file_only():
     cid = build_canonical_id("src/module.py")

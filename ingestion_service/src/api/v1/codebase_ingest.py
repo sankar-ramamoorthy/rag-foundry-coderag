@@ -143,6 +143,18 @@ def _background_ingest_repo(
                 if doc_node:
                     # Proceed with embedding and persistence
                     chunks = pipeline._chunk(text, "code", provider)
+                    # Inject canonical_id into every chunk metadata here
+                    # This is what extract_canonical_ids_from_chunks() reads in rag_orchestrator
+                    for chunk in chunks:
+                        chunk.metadata["canonical_id"] = canonical_id
+                        chunk.metadata["repo_id"] = repo_id
+                        chunk.metadata["relative_path"] = node.get("relative_path", "")
+                        chunk.metadata["doc_type"] = node.get("doc_type", "code")
+                        chunk.metadata["source_metadata"] = {          # keep source_metadata too
+                            **chunk.metadata.get("source_metadata", {}),
+                            "canonical_id": canonical_id,
+                        }
+
                     embeddings = pipeline._embed(chunks)
                     pipeline._persist(chunks, embeddings, str(ingestion_id), doc_node.document_id)
                 else:

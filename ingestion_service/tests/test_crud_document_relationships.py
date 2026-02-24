@@ -2,8 +2,8 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.core.models import Base
-from src.core.models_v2.document_node import DocumentNode
+from shared.models.base import Base
+from shared.models.document_node import DocumentNode
 from src.core.crud import document_relationships as crud
 
 # -----------------------------

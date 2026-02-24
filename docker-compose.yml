@@ -139,8 +139,8 @@ services:
     ports:
       - "7860:7860"
     environment:
-      API_BASE_URL: http://ingestion_service:8001
-      RAG_API_BASE_URL: http://rag-orchestrator:8000
+      API_BASE_URL: http://ingestion_service:8000
+      RAG_API_BASE_URL: http://rag_orchestrator:8000
     depends_on:
       - ingestion_service
       - rag_orchestrator
