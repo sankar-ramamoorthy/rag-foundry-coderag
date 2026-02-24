@@ -5,11 +5,16 @@ from typing import Set, Dict, List
 import logging
 import requests
 from .codebase_queries import CodebaseGraph, load_graph_for_repo
+from src.core.config import get_settings    
+        
+
+
 
 logger = logging.getLogger(__name__)
 
 _repo_graphs: Dict[str, CodebaseGraph] = {}
-
+settings = get_settings()
+ingestion_service_url=settings.INGESTION_SERVICE_URL
 
 def extract_canonical_ids_from_chunks(chunks: List) -> Set[str]:
     """
@@ -18,7 +23,10 @@ def extract_canonical_ids_from_chunks(chunks: List) -> Set[str]:
     canonical_ids: Set[str] = set()
     for chunk in chunks:
         metadata = getattr(chunk, "metadata", {}) or {}
-        cid = metadata.get("canonical_id")
+        cid = (
+            metadata.get("canonical_id")
+            or metadata.get("source_metadata", {}).get("canonical_id")
+        )
         if cid:
             canonical_ids.add(cid)
     logger.debug(f"Extracted {len(canonical_ids)} canonical_ids from {len(chunks)} chunks")
@@ -34,7 +42,7 @@ def canonical_ids_to_document_ids(
     """
     if not canonical_ids:
         return set()
-    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/nodes"
+    url = f"{ingestion_service_url}/v1/graph/repos/{repo_id}/nodes"
     response = requests.get(url, params={"canonical_ids": ",".join(canonical_ids)})
     if response.status_code == 200:
         document_ids = {node['document_id'] for node in response.json().get("nodes", [])}

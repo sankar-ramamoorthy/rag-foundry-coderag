@@ -1,7 +1,15 @@
 from collections import deque, defaultdict
 from typing import List, Set, Dict, Optional
 import requests  # New import to call the ingestion service API
+from src.core.config import get_settings 
+import logging 
 
+# Set up logging configuration
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+settings = get_settings()
+ingestion_service_url=settings.INGESTION_SERVICE_URL
 # --- Graph Classes ---
 class Node:
     """
@@ -111,7 +119,8 @@ def get_nodes_by_canonical_ids_from_api(repo_id: str, canonical_ids: List[str]) 
     """
     Fetch nodes by canonical_ids from the ingestion_service API (instead of directly querying DB).
     """
-    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/nodes"
+    #url = f"http://ingestion_service/v1/graph/repos/{repo_id}/nodes"
+    url = f"{ingestion_service_url}/v1/graph/repos/{repo_id}/nodes"
     params = {"canonical_ids": ",".join(canonical_ids)}
     response = requests.get(url, params=params)
 
@@ -126,7 +135,8 @@ def get_full_graph_from_api(repo_id: str) -> Dict:
     Fetch the full graph (nodes and relationships) for a given repository
     from the ingestion_service API.
     """
-    url = f"http://ingestion_service/v1/graph/repos/{repo_id}"
+    #url = f"http://ingestion_service/v1/graph/repos/{repo_id}"
+    url = f"{ingestion_service_url}/v1/graph/repos/{repo_id}"
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -134,43 +144,29 @@ def get_full_graph_from_api(repo_id: str) -> Dict:
     else:
         raise Exception(f"Error fetching full graph: {response.status_code} - {response.text}")
     
-def get_relationships_from_api(repo_id: str, canonical_ids: List[str]) -> List[Dict]:
-    """
-    Fetch relationships (edges) for a set of canonical_ids from the ingestion_service API.
-    """
-    url = f"http://ingestion_service/v1/graph/repos/{repo_id}/relationships"
-    params = {"canonical_ids": ",".join(canonical_ids)}
-    response = requests.get(url, params=params)
-
-    if response.status_code == 200:
-        return response.json().get('relationships', [])
-    else:
-        raise Exception(f"Error fetching relationships: {response.status_code} - {response.text}")
 
 # --- Graph Loading ---
 
 def load_graph_for_repo(repo_id: str) -> CodebaseGraph:
     """
     Build an in-memory CodebaseGraph from the ingestion_service API.
-    Uses get_full_graph_from_api to fetch nodes and relationships in one call.
     """
     graph = CodebaseGraph()
 
-    # Single API call returns {"nodes": {canonical_id: node_dict}, "relationships": {from_cid: [edges]}}
     graph_data = get_full_graph_from_api(repo_id)
 
     # Step 1: Load Nodes
-    # graph_data["nodes"] is a dict: canonical_id -> node dict
-    for canonical_id, node in graph_data.get("nodes", {}).items():
+    # API returns nodes as a LIST of GraphNode dicts (not a dict keyed by canonical_id)
+    for node in graph_data.get("nodes", []):
         new_node = Node(
-            canonical_id=canonical_id,
+            canonical_id=node["canonical_id"],
             file_path=node.get("relative_path"),
             lineno=node.get("lineno"),
         )
         graph.add_node(new_node)
 
     # Step 2: Load Relationships
-    # graph_data["relationships"] is a dict: from_canonical_id -> [{"to_canonical_id": ..., "relation_type": ...}]
+    # relationships is dict: from_canonical_id → [{to_canonical_id, relation_type}]
     for from_cid, edges in graph_data.get("relationships", {}).items():
         for edge in edges:
             to_cid = edge.get("to_canonical_id")
@@ -178,4 +174,5 @@ def load_graph_for_repo(repo_id: str) -> CodebaseGraph:
             if from_cid in graph.nodes and to_cid in graph.nodes:
                 graph.add_edge(from_cid, to_cid, relation_type)
 
+    logger.info(f"Graph built: {len(graph.nodes)} nodes")
     return graph

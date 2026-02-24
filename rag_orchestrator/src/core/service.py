@@ -90,6 +90,7 @@ async def canonical_ids_to_document_ids_http(
 
     settings = get_settings()
     url = f"{settings.INGESTION_SERVICE_URL}/v1/graph/repos/{repo_id}/nodes"
+    logger.info(f"url = {url}")
     params = {"canonical_ids": ",".join(sorted(canonical_ids))}
 
     async with httpx.AsyncClient(timeout=200) as client:

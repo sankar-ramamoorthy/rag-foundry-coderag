@@ -177,32 +177,53 @@ def get_document_nodes_by_canonical_ids(
 
 def get_full_graph_for_repo(repo_id: str) -> Dict:
     """
-    This function loads both nodes (document_nodes) and relationships 
-    for the given repo and returns a full graph.
+    Load nodes and relationships for a repo.
+    Relationships are filtered via JOIN to document_nodes since
+    DocumentRelationship has no repo_id column.
     """
     with SessionLocal() as session:
+
         # Load nodes
         nodes = (
             session.query(DocumentNode)
             .filter(DocumentNode.repo_id == repo_id)
             .all()
         )
-        node_data = {node.canonical_id: node for node in nodes}
 
-        # Load relationships (edges)
+        if not nodes:
+            return {"nodes": {}, "relationships": {}}
+
+        # Build canonical_id lookup and document_id set
+        node_data = {node.canonical_id: node for node in nodes}
+        document_ids = {node.document_id for node in nodes}
+
+        # Load relationships filtered by document_ids in this repo
+        # (no repo_id on DocumentRelationship — filter via from_document_id)
         relationships = (
             session.query(DocumentRelationship)
-            .filter(DocumentRelationship.repo_id == repo_id)
+            .filter(DocumentRelationship.from_document_id.in_(document_ids))
             .all()
         )
-        rel_data = {}
+
+        # Build a document_id → canonical_id reverse map for relationship lookup
+        doc_id_to_canonical = {node.document_id: node.canonical_id for node in nodes}
+
+        rel_data: Dict = {}
         for rel in relationships:
-            if rel.from_canonical_id not in rel_data:
-                rel_data[rel.from_canonical_id] = []
-            rel_data[rel.from_canonical_id].append({
-                "to_canonical_id": rel.to_canonical_id,
-                "relation_type": rel.relation_type,
-            })
+            from_cid = doc_id_to_canonical.get(rel.from_document_id)
+            to_cid = doc_id_to_canonical.get(rel.to_document_id)
+            if from_cid and to_cid:
+                if from_cid not in rel_data:
+                    rel_data[from_cid] = []
+                rel_data[from_cid].append({
+                    "to_canonical_id": to_cid,
+                    "relation_type": rel.relation_type,
+                })
+
+        logger.info(
+            f"DB: get_full_graph_for_repo repo={repo_id[:8]} "
+            f"— {len(node_data)} nodes, {len(rel_data)} relationship groups"
+        )
 
         return {
             "nodes": node_data,
