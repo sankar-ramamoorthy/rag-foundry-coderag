@@ -132,7 +132,8 @@ async def hybrid_retrieve(
     logger.info(f"🔄 Hybrid retrieval | repo={repo_id[:8]} | q='{query[:50]}...'")
 
     search_url = f"{settings.VECTOR_STORE_URL}/v1/vectors/search"
-    payload = {"query_vector": query_embedding, "k": top_k, "metadata_filter": {"doc_type": "code"}}
+    payload = {"query_vector": query_embedding, "k": top_k,
+                "metadata_filter": {"doc_type": "code"}}
 
     async with httpx.AsyncClient(timeout=200) as client:
         resp = await client.post(search_url, json=payload)

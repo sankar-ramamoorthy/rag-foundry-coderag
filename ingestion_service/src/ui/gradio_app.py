@@ -204,6 +204,32 @@ def submit_rag_query(query: str, repo_id: str | None, top_k: int, provider: str 
     except Exception as exc:
         return f"❌ Error querying RAG: {exc}"
 
+def submit_simple_rag_query(query: str, top_k: int, provider: str | None, model: str | None):
+    """Submit a simple (non-graph) RAG query for regular documents."""
+    try:
+        if not query.strip():
+            return "Please enter a query."
+        payload = {"query": query, "top_k": top_k}
+        if provider:
+            payload["provider"] = provider
+        if model:
+            payload["model"] = model
+
+        response = requests.post(
+            f"{RAG_API_BASE_URL}/v1/rag/simple",
+            json=payload,
+            timeout=300,
+        )
+        response.raise_for_status()
+        data = response.json()
+        answer = data.get("answer", "")
+        sources = data.get("sources", [])
+        formatted_sources = "\n".join(f"• {s}" for s in sources)
+        return f"**Answer:**\n{answer}\n\n**Sources:**\n{formatted_sources or 'None found.'}"
+
+    except Exception as exc:
+        return f"❌ Error: {exc}"
+    
 # ----------------------------
 # Build Gradio UI (COMPLETE)
 # ----------------------------
@@ -333,6 +359,30 @@ def build_ui():
             label="🧠 Graph-Aware Response",
             lines=15,
             max_lines=20
+        )
+        # In build_ui(), add a new section after the existing repo RAG section:
+
+        gr.Markdown("## 📄 Document Query (Non-Repo)")
+        gr.Markdown("*Query regular documents: PDFs, text files, etc.*")
+
+        doc_query = gr.Textbox(
+            label="❓ Question",
+            placeholder="Ask about your uploaded documents...",
+            lines=3,
+        )
+
+        with gr.Row():
+            doc_top_k = gr.Number(label="📊 Top K", value=5, precision=0, minimum=1, maximum=50)
+            doc_provider = gr.Textbox(label="🤖 LLM Provider", placeholder="ollama")
+            doc_model = gr.Textbox(label="🧠 Model", placeholder="Qwen3:1.7b")
+
+        doc_btn = gr.Button("🔍 Ask Document RAG", variant="secondary", size="lg")
+        doc_output = gr.Textbox(label="📄 Response", lines=15, max_lines=20)
+
+        doc_btn.click(
+            fn=submit_simple_rag_query,
+            inputs=[doc_query, doc_top_k, doc_provider, doc_model],
+            outputs=doc_output,
         )
 
         # ----------------------------

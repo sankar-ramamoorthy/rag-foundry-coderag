@@ -93,7 +93,15 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
     pipeline = _build_pipeline(provider)
 
     is_pdf = filename.endswith(".pdf") or content_type == "application/pdf"
+    is_image = content_type.startswith("image/") or \
+               filename.lower().endswith((".png", ".jpg", ".jpeg", ".tiff"))
     ocr_provider = metadata.get("ocr_provider")
+    if is_pdf:
+        doc_type = "pdf"
+    elif is_image:
+        doc_type = "image"
+    else:
+        doc_type = "file"
 
     with SessionLocal() as session:
         StatusManager(session).mark_running(ingestion_id)
@@ -107,12 +115,19 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
             chunks = PDFChunkAssembler().assemble(graph)
             if not chunks:
                 raise RuntimeError("No extractable text found in uploaded PDF")
-            pipeline.run_with_chunks(chunks=chunks, ingestion_id=str(ingestion_id), filename=filename)
+            pipeline.run_with_chunks(chunks=chunks, ingestion_id=str(ingestion_id),
+                                      filename=filename,
+                                      doc_type=doc_type,              # ADD
+                                      )
         else:
             text = extract_text_from_bytes(file_bytes=file_bytes, filename=filename, content_type=content_type, ocr_provider=ocr_provider)
             if not text.strip():
                 raise RuntimeError("No extractable text found in uploaded file")
-            pipeline.run(text=text, ingestion_id=str(ingestion_id), source_type="file", provider=provider,filename=filename )
+            pipeline.run(text=text, ingestion_id=str(ingestion_id), 
+                         source_type="file", 
+                         provider=provider,filename=filename ,
+                         doc_type=doc_type,              
+                         )
 
         # Mark completed
         with SessionLocal() as session:

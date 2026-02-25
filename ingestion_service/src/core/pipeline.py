@@ -46,6 +46,7 @@ class IngestionPipeline:
         source_type: str,
         provider: str,
         filename: str = "unknown",  # NEW: Optional filename
+        doc_type: str = "file",       # ADD
     ) -> None:
         """
         Full pipeline: validate → chunk → embed → persist + DocumentNode (MS6).
@@ -91,6 +92,9 @@ class IngestionPipeline:
             text=text,
             source_type=source_type,
             provider=provider,
+            doc_type=doc_type or source_type,         # ADD
+            relative_path=relative_path,              # ADD
+            canonical_id=canonical_id,                # ADD
         )
         embeddings = self._embed(chunks)
         logger.debug(f"📦 MS6 run() Persisting {len(chunks)} chunks with document_id={document_id}")
@@ -102,6 +106,7 @@ class IngestionPipeline:
         chunks: list[Chunk],
         ingestion_id: str,
         filename: str = "unknown",  # NEW: Optional filename
+        doc_type: str = "file",       # ADD
     ) -> None:
         """
         Pipeline for pre-chunked content: DocumentNode → embed → persist (MS6).
@@ -140,6 +145,16 @@ class IngestionPipeline:
             logger.debug(f"✅ MS6 run_with_chunks() DocumentNode COMMITTED {document_id} for {ingestion_id}")
             logger.debug(f"   → summary.py will look for source='{source}'")
 
+            # Inject metadata into pre-built chunks — these bypass _chunk()
+        for chunk in chunks:
+            chunk.metadata.setdefault("source_type", "file")
+            chunk.metadata.setdefault("doc_type", doc_type or "file")      # ADD
+            chunk.metadata.setdefault("provider", "unknown")
+            chunk.metadata.setdefault("relative_path", relative_path)      # ADD
+            chunk.metadata.setdefault("canonical_id", canonical_id)        # ADD
+            chunk.metadata.setdefault("chunk_strategy", 
+            chunk.metadata.get("chunk_strategy", "unknown"))
+        
         # Continue pipeline
         embeddings = self._embed(chunks)
         logger.debug(f"📦 MS6 run_with_chunks() Persisting {len(chunks)} chunks with document_id={document_id}")
@@ -154,6 +169,9 @@ class IngestionPipeline:
         text: str,
         source_type: str,
         provider: str,
+        doc_type: str = "file",       # ADD
+        relative_path: str = "",      # ADD
+        canonical_id: str = "",       # ADD
     ) -> list[Chunk]:
         """
         Chunk text using selected strategy.
@@ -186,6 +204,9 @@ class IngestionPipeline:
                     "chunker_params": dict(chunker_params),
                     "source_type": source_type,
                     "provider": provider,
+                    "doc_type": doc_type or source_type or "unknown",      # ADD
+                    "relative_path": relative_path or "",                  # ADD
+                    "canonical_id": canonical_id or "",                    # ADD
                 }
             )
             logger.debug(f"   → Chunk {i}: {len(chunk.content)} chars")
