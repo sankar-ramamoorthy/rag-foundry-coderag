@@ -50,7 +50,8 @@ async def run_simple_rag(
 
     # Step 2: Vector search - no metadata filter, searches all docs
     search_url = f"{settings.VECTOR_STORE_URL}/v1/vectors/search"
-    payload = {"query_vector": query_embedding, "k": top_k}
+    payload = {"query_vector": query_embedding, "k": top_k,
+                "metadata_filter": {"source_type": {"ne": "code"}}}
 
     async with httpx.AsyncClient(timeout=120) as client:
         try:

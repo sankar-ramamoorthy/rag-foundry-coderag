@@ -31,7 +31,7 @@ class VectorBatchRequest(BaseModel):
 class VectorSearchRequest(BaseModel):
     query_vector: List[float]
     k: int = 5
-    metadata_filter: Optional[Dict[str, str]] = None  # ADD THIS
+    metadata_filter: Optional[Dict[str, Any]] = None  # ADD THIS
 
 @router.post("/batch")
 async def add_vectors(
