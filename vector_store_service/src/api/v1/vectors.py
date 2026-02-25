@@ -31,6 +31,7 @@ class VectorBatchRequest(BaseModel):
 class VectorSearchRequest(BaseModel):
     query_vector: List[float]
     k: int = 5
+    metadata_filter: Optional[Dict[str, str]] = None  # ADD THIS
 
 @router.post("/batch")
 async def add_vectors(
@@ -71,7 +72,8 @@ async def similarity_search(
     """Search for similar vectors - MS6 RAG compatible."""
     try:
         logger.debug("similarity_search Search for similar vectors - MS6 RAG compatible")
-        results = store.similarity_search(request.query_vector, request.k)
+        results = store.similarity_search(request.query_vector, request.k,
+        metadata_filter=request.metadata_filter  )
 
         # MS6 RAG FIX: Match exact fields expected by rag-orchestrator
         return {

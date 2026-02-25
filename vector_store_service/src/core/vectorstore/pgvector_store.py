@@ -1,6 +1,6 @@
 # src/core/vectorstore/pgvector_store.py - HOTFIX (no TABLE_NAME confusion)
 from __future__ import annotations
-from typing import Sequence, Iterable, List
+from typing import Sequence, Iterable, List, Optional,  Dict
 import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
@@ -69,23 +69,62 @@ class PgVectorStore(VectorStore):
                         ))
         logging.info(f"MS6 DUAL-WRITE: {len(records)} vectors + chunks complete")
 
-    def similarity_search(self, query_vector: Sequence[float], k: int) -> List[VectorRecord]:
-        """MS6: Search vector_chunks (provenance)"""
-        search_sql = sql.SQL("""
-            SELECT vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
-                   chunk_text, source_metadata, provider, document_id
-            FROM {schema}.vector_chunks
-            ORDER BY vector <-> (%s::vector)
-            LIMIT %s
-        """).format(schema=sql.Identifier(self.SCHEMA))
+    def similarity_search(
+        self,
+        query_vector: Sequence[float],
+        k: int,
+        metadata_filter: Optional[Dict[str, str]] = None
+        ) -> List[VectorRecord]:
+        """Search vector_chunks with optional metadata filtering."""
+
+        if metadata_filter:
+            # Build fully parameterised WHERE clause
+            # sql.Literal handles values safely, sql.SQL handles the key names
+            where_parts = sql.SQL(" AND ").join(
+                sql.SQL("source_metadata->>{}  = {}").format(
+                    sql.Literal(key),    # key as literal string — safe
+                    sql.Placeholder()    # value as %s placeholder — safe
+                )
+                for key in metadata_filter.keys()
+            )
+            filter_values = list(metadata_filter.values())
+
+            search_sql = sql.SQL("""
+                SELECT vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
+                    chunk_text, source_metadata, provider, document_id
+                FROM {schema}.vector_chunks
+                WHERE {where}
+                ORDER BY vector <-> ({qvec}::vector)
+                LIMIT {limit}
+            """).format(
+                schema=sql.Identifier(self.SCHEMA),
+                where=where_parts,
+                qvec=sql.Placeholder(),
+                limit=sql.Placeholder(),
+            )
+            params = filter_values + [query_vector, k]
+
+        else:
+            search_sql = sql.SQL("""
+                SELECT vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
+                    chunk_text, source_metadata, provider, document_id
+                FROM {schema}.vector_chunks
+                ORDER BY vector <-> ({qvec}::vector)
+                LIMIT {limit}
+            """).format(
+                schema=sql.Identifier(self.SCHEMA),
+                qvec=sql.Placeholder(),
+                limit=sql.Placeholder(),
+            )
+            params = [query_vector, k]
 
         results: List[VectorRecord] = []
         with psycopg.connect(self._dsn) as conn:
             with conn.cursor() as cur:
-                cur.execute(search_sql, (query_vector, k))
+                cur.execute(search_sql, params)
                 for row in cur.fetchall():
                     (vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
-                     chunk_text, source_metadata, provider, document_id) = row
+                    chunk_text, source_metadata, provider, document_id) = row
                     metadata = VectorMetadata(
                         ingestion_id=ingestion_id, chunk_id=chunk_id,
                         chunk_index=chunk_index, chunk_strategy=chunk_strategy,
