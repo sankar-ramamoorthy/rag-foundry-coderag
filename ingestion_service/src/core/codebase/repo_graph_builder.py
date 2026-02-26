@@ -9,6 +9,7 @@ from src.core.codebase.identity import build_global_id
 from src.core.extractors.python_extractor import PythonASTExtractor
 from src.core.codebase.repo_graph import RepoGraph
 from src.core.codebase.symbol_table import build_symbol_table
+from src.core.extractors.markdown_extractor import MarkdownSectionExtractor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -43,7 +44,9 @@ class RepoGraphBuilder:
                 artifact["relative_path"] = relative_path
                 artifact["ingestion_id"] = self.ingestion_id
                 artifact.setdefault("title", artifact.get("name", "Untitled"))
-                artifact.setdefault("doc_type", "python source")
+                #artifact.setdefault("doc_type", "python source")
+                if "doc_type" not in artifact:
+                    artifact["doc_type"] = "python source"
 
                 global_id = build_global_id(
                     self.ingestion_id,
@@ -69,7 +72,8 @@ class RepoGraphBuilder:
     # -----------------------------
 
     def _attach_defines(self, graph: RepoGraph):
-        definition_types = {"CLASS", "FUNCTION", "METHOD"}
+        definition_types = {"CLASS", "FUNCTION", "METHOD",
+                            "MARKDOWN_SECTION",}
 
         for entity in graph.all_entities():
             if entity.get("artifact_type") not in definition_types:
@@ -164,18 +168,28 @@ class RepoGraphBuilder:
         return None
 
     def _walk_repo(self):
-        for path in self.repo_root.rglob("*.py"):
+        SUPPORTED = {".py", ".md"}   # MS6-IS2: added .md
+        for path in self.repo_root.rglob("*"):
+            if path.suffix not in SUPPORTED:
+                continue
             if any(part.startswith(".") for part in path.parts):
                 continue
             yield path
 
     def _select_extractor(self, file_path: Path):
+        rel = file_path.relative_to(self.repo_root).as_posix()
         if file_path.suffix == ".py":
-            rel = file_path.relative_to(self.repo_root).as_posix()
+            #rel = file_path.relative_to(self.repo_root).as_posix()
             return PythonASTExtractor(relative_path=rel)
+        if file_path.suffix == ".md":
+            return MarkdownSectionExtractor(relative_path=rel)     
         return None
 
     def _extract_artifact_text(self, source: str, artifact: dict) -> str:
+            #  Markdown extractors pre-populate text — don't re-extract
+        if artifact.get("text"):
+            return artifact["text"]
+    
         artifact_type = artifact.get("artifact_type")
 
         if artifact_type == "MODULE":
