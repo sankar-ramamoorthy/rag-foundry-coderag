@@ -1,6 +1,6 @@
 ---
 
-# rag-foundry-codebase
+# rag-foundry-coderag
 
 **AI-Powered Code & Document Intelligence**
 *Query code repositories and documents like a developer assistant. Extracts functions, classes, and dependencies, performs graph-aware semantic search, and answers questions using LLMs. Perfect for demonstrating AI-assisted developer productivity in portfolios.*
@@ -9,7 +9,7 @@
 
 ## 🚀 Overview
 
-`rag-foundry-codebase` extends the **RAG-Foundry** framework to provide **semantic retrieval and graph-aware querying** across both **codebases** and **documents**.
+`rag-foundry-coderag` extends the **RAG-Foundry** framework to provide **semantic retrieval and graph-aware querying** across both **codebases** and **documents**.
 
 It enables you to:
 
@@ -80,8 +80,8 @@ path/to/file.py#function_name
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/sankar-ramamoorthy/rag-foundry-codebase.git
-cd rag-foundry-codebase
+git clone https://github.com/sankar-ramamoorthy/rag-foundry-coderag.git
+cd rag-foundry-coderag
 ```
 
 2. **Start services with Docker Compose**

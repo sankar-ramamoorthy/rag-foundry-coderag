@@ -33,6 +33,18 @@ class FullGraphResponse(BaseModel):
     relationships: Dict
     total_nodes: int
 
+# New models for document relationships endpoint
+class RelationshipItem(BaseModel):
+    target_document_id: str
+    relation_type: str
+
+
+class DocumentRelationshipsResponse(BaseModel):
+    document_id: str
+    relationships: List[RelationshipItem]
+    total: int
+
+
 
 # -------------------------------
 # GET /graph/repos/{repo_id}/nodes
@@ -122,4 +134,48 @@ async def get_full_graph(
         nodes=nodes,
         relationships=graph_data["relationships"],
         total_nodes=len(nodes),
+    )
+
+
+# GET /graph/docs/{document_id}/relationships
+@router.get("/docs/{document_id}/relationships", 
+            response_model=DocumentRelationshipsResponse)
+async def get_document_relationships(
+    document_id: str,
+):
+    """
+    Return outgoing relationships for a single document.
+    Used by rag_orchestrator simple_service to expand retrieval plan
+    via traversal_planner.expand_retrieval_plan().
+
+    Example:
+        /v1/graph/docs/486dcf66-c9ba-4f99-9dd6-296e81039c48/relationships
+    """
+    logger.debug(f"Relationships lookup: document_id={document_id[:8]}")
+
+    from src.core.database_session import get_sessionmaker
+    from src.core.crud.document_relationships import list_outgoing_relationships
+
+    SessionLocal = get_sessionmaker()
+
+    with SessionLocal() as session:
+        rels = list_outgoing_relationships(session, document_id=document_id)
+
+    result = [
+        RelationshipItem(
+            target_document_id=str(rel.to_document_id),
+            relation_type=rel.relation_type,
+        )
+        for rel in rels
+    ]
+
+    logger.info(
+        f"Relationships lookup: document_id={document_id[:8]} "
+        f"→ {len(result)} outgoing relationships"
+    )
+
+    return DocumentRelationshipsResponse(
+        document_id=document_id,
+        relationships=result,
+        total=len(result),
     )
