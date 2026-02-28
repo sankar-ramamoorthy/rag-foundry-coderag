@@ -33,6 +33,10 @@ class VectorSearchRequest(BaseModel):
     k: int = 5
     metadata_filter: Optional[Dict[str, Any]] = None  # ADD THIS
 
+class VectorSearchByDocRequest(BaseModel):
+    document_id: str
+    k: int = 3
+
 @router.post("/batch")
 async def add_vectors(
     batch: VectorBatchRequest, store: PgVectorStore = Depends(get_vector_store)
@@ -110,4 +114,36 @@ async def delete_by_ingestion(
         return {"status": "deleted", "ingestion_id": ingestion_id}
     except Exception as e:
         logger.error(f"Error deleting vectors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/search-by-doc")
+async def search_by_document(
+    request: VectorSearchByDocRequest,
+    store: PgVectorStore = Depends(get_vector_store)
+):
+    """Return chunks for a specific document_id — used for graph expansion."""
+    try:
+        results = store.get_chunks_by_document_id(request.document_id, request.k)
+        return {
+            "results": [
+                {
+                    "chunk_id": r.metadata.chunk_id,
+                    "text": r.metadata.chunk_text,
+                    "document_id": r.metadata.document_id,
+                    "score": 1.0,
+                    "metadata": {
+                        "ingestion_id": r.metadata.ingestion_id,
+                        "chunk_index": r.metadata.chunk_index,
+                        "chunk_strategy": r.metadata.chunk_strategy,
+                        "source_metadata": r.metadata.source_metadata,
+                        "provider": r.metadata.provider,
+                    },
+                }
+                for r in results
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching chunks by document_id: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -186,3 +186,36 @@ class PgVectorStore(VectorStore):
             with psycopg.connect(self._dsn) as conn:
                 with conn.cursor() as cur:
                     cur.execute(delete_sql, (ingestion_id,))
+
+    def get_chunks_by_document_id(self, document_id: str, k: int = 3) -> List[VectorRecord]:
+        """Fetch chunks for a specific document_id — no vector similarity needed."""
+        search_sql = sql.SQL("""
+            SELECT vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
+                chunk_text, source_metadata, provider, document_id
+            FROM {schema}.vector_chunks
+            WHERE document_id = {doc_id}
+            LIMIT {limit}
+        """).format(
+            schema=sql.Identifier(self.SCHEMA),
+            doc_id=sql.Placeholder(),
+            limit=sql.Placeholder(),
+        )
+        results: List[VectorRecord] = []
+        with psycopg.connect(self._dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute(search_sql, (document_id, k))
+                for row in cur.fetchall():
+                    (vector, ingestion_id, chunk_id, chunk_index, chunk_strategy,
+                    chunk_text, source_metadata, provider, document_id) = row
+                    metadata = VectorMetadata(
+                        ingestion_id=ingestion_id,
+                        chunk_id=chunk_id,
+                        chunk_index=chunk_index,
+                        chunk_strategy=chunk_strategy,
+                        chunk_text=chunk_text,
+                        source_metadata=source_metadata,
+                        provider=provider,
+                        document_id=document_id,
+                    )
+                    results.append(VectorRecord(vector=vector, metadata=metadata))
+        return results

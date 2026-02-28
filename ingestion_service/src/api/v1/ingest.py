@@ -87,7 +87,8 @@ def extract_text_from_bytes(file_bytes: bytes, filename: str, content_type: str,
 # -----------------------------
 # Background ingestion
 # -----------------------------
-def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: str, content_type: str, metadata: dict):
+def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, 
+                           filename: str, content_type: str, metadata: dict):
     settings = get_settings()
     provider = settings.EMBEDDING_PROVIDER
     pipeline = _build_pipeline(provider)
@@ -95,11 +96,14 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
     is_pdf = filename.endswith(".pdf") or content_type == "application/pdf"
     is_image = content_type.startswith("image/") or \
                filename.lower().endswith((".png", ".jpg", ".jpeg", ".tiff"))
+    is_markdown = filename.endswith(".md") 
     ocr_provider = metadata.get("ocr_provider")
     if is_pdf:
         doc_type = "pdf"
     elif is_image:
         doc_type = "image"
+    elif is_markdown:
+        doc_type = "markdown_module"         
     else:
         doc_type = "file"
 
@@ -119,6 +123,22 @@ def background_ingest_file(*, ingestion_id: UUID, file_bytes: bytes, filename: s
                                       filename=filename,
                                       doc_type=doc_type,              # ADD
                                       )
+        elif is_markdown:
+            # MS6-IS3: structured section extraction for .md files
+            text = extract_text_from_bytes(
+                file_bytes=file_bytes,
+                filename=filename,
+                content_type=content_type,
+                ocr_provider=None,
+            )
+            if not text.strip():
+                raise RuntimeError("No extractable text found in uploaded Markdown file")
+            pipeline.run_with_sections(
+                source=text,
+                ingestion_id=str(ingestion_id),
+                filename=filename,
+                doc_type=doc_type,
+            )
         else:
             text = extract_text_from_bytes(file_bytes=file_bytes, filename=filename, content_type=content_type, ocr_provider=ocr_provider)
             if not text.strip():
