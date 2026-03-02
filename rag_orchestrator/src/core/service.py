@@ -234,6 +234,7 @@ async def run_rag(
         ollama_base_url=settings.OLLAMA_BASE_URL,
         ollama_model=settings.OLLAMA_EMBED_MODEL,
         ollama_batch_size=settings.OLLAMA_BATCH_SIZE,
+        ollama_dimension=settings.VECTOR_DIMENSION,
     )
     query_embedding = embed_query(query, embedder)
 
@@ -285,7 +286,7 @@ async def run_rag(
         params["model"] = model
 
     llm_url = f"{settings.LLM_SERVICE_URL}/generate"
-    async with httpx.AsyncClient(timeout=200) as client:
+    async with httpx.AsyncClient(timeout=1000) as client:
         resp = await client.post(llm_url, json=llm_payload, params=params)
         resp.raise_for_status()
         result = resp.json()

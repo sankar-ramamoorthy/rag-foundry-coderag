@@ -41,6 +41,7 @@ def _build_pipeline(provider: str) -> IngestionPipeline:
         ollama_base_url=settings.OLLAMA_BASE_URL,
         ollama_model=settings.OLLAMA_EMBED_MODEL,
         ollama_batch_size=settings.OLLAMA_BATCH_SIZE,
+        ollama_dimension=settings.VECTOR_DIMENSION,
     )
     vector_store = HttpVectorStore(base_url=settings.VECTOR_STORE_SERVICE_URL, provider=provider)
     return IngestionPipeline(
