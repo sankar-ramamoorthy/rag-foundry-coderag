@@ -11,19 +11,30 @@ logging.basicConfig(level=logging.DEBUG)
 # We truncate conservatively at 400 words (words ≈ tokens for English/code).
 # This prevents "input length exceeds context length" errors on large chunks.
 MAX_EMBEDDING_WORDS = 400
-
+MAX_EMBEDDING_CHARS = 800  # ~400 words * ~3.75 chars/word, safe hard limit
 
 def _truncate(text: str, max_words: int = MAX_EMBEDDING_WORDS) -> str:
-    """Truncate text to max_words words to stay within embedding model context."""
+    """Truncate text to stay within embedding model context window.
+    Uses word count as primary limit, character count as hard fallback
+    for content with few spaces (ASCII diagrams, minified code, etc.)
+    """
+    # Hard character limit first
+    if len(text) > MAX_EMBEDDING_CHARS:
+        logging.debug(
+            "OllamaEmbedder: truncated chunk by chars from %d to %d",
+            len(text), MAX_EMBEDDING_CHARS,
+        )
+        text = text[:MAX_EMBEDDING_CHARS]
+    
+    # Then word limit
     words = text.split()
     if len(words) <= max_words:
         return text
-    truncated = " ".join(words[:max_words])
     logging.debug(
         "OllamaEmbedder: truncated chunk from %d words to %d words",
         len(words), max_words,
     )
-    return truncated
+    return " ".join(words[:max_words])
 
 
 class OllamaEmbedder(BaseEmbedder):
