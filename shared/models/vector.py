@@ -1,9 +1,7 @@
 # shared/models/vector.py
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Sequence, Dict, Optional
-
 
 @dataclass
 class VectorMetadata:
@@ -13,9 +11,9 @@ class VectorMetadata:
     chunk_strategy: str
     chunk_text: str
     source_metadata: Optional[Dict] = field(default_factory=dict)
-    provider: str = "mock"  # New attribute for provider name
-    document_id: Optional[str] = None  # MS6-IS3: NEW
-
+    provider: str = "ollama"
+    document_id: Optional[str] = None
+    score: float = 0.0  # cosine similarity score from pgvector (1 - cosine_distance)
 
 @dataclass
 class VectorRecord:

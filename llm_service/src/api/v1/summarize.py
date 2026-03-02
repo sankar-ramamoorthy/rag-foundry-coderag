@@ -20,13 +20,14 @@ logger.debug(f"summarize.py router: {router}")
 VECTOR_STORE_URL = "http://vector_store_service:8002"
 LLM_SERVICE_URL = "http://llm_service:8000"
 logger.debug(f"summarize.py LLM_SERVICE_URL: {LLM_SERVICE_URL}")
+VECTOR_DIMENSION: int = 1024
 
 async def fetch_chunks(ingestion_id: str) -> List[str]:
     """Fetch all chunk_text for ingestion_id from vector-store-service."""
     search_url = f"{VECTOR_STORE_URL}/v1/vectors/search"
     
     # Dummy query vector (we want ALL chunks for this ingestion_id)
-    dummy_vector = [0.0] * 768  # nomic-embed-text:v1.5 dimension
+    dummy_vector = [0.0] *  VECTOR_DIMENSION # 
     
     payload = {"query_vector": dummy_vector, "k": 1000}
     
@@ -92,7 +93,7 @@ async def generate_summary(ingestion_id: str):
             context=context,
             query=query,
             provider=DEFAULT_LLM_PROVIDER,
-            model="granite4:350m"  # Match rag-orchestrator
+            model="phi4-mini:latest"  # Match rag-orchestrator
         )
         
         summary = result.get("response", "Summary generation failed")

@@ -97,9 +97,9 @@ class DocumentNode(Base):
     summary: str = Column(Text, nullable=False)
 
     summary_embedding: list[float] = Column(
-        Vector(768),
+        Vector(1024),
         nullable=True,
-        doc="768-dim embedding vector (pgvector)",
+        doc="1024-dim embedding vector (pgvector)",
     )
 
     source: str = Column(

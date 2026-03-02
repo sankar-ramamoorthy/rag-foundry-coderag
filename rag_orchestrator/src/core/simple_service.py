@@ -59,6 +59,7 @@ async def run_simple_rag(
         ollama_base_url=settings.OLLAMA_BASE_URL,
         ollama_model=settings.OLLAMA_EMBED_MODEL,
         ollama_batch_size=settings.OLLAMA_BATCH_SIZE,
+        ollama_dimension=settings.VECTOR_DIMENSION,
     )
     query_embedding = embed_query(query, embedder)
 
@@ -72,7 +73,7 @@ async def run_simple_rag(
         "metadata_filter": {"source_type": {"ne": "code"}},
     }
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=1000) as client:
         try:
             resp = await client.post(search_url, json=payload)
             resp.raise_for_status()
@@ -250,7 +251,7 @@ async def run_simple_rag(
     if model:
         params["model"] = model
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=1000) as client:
         try:
             resp = await client.post(
                 f"{settings.LLM_SERVICE_URL}/generate",
